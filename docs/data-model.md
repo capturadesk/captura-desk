@@ -1,0 +1,76 @@
+# Data model and retention
+
+The schema and migrations live in [storage.cjs](../electron/storage.cjs); payload validation lives in [contracts.cjs](../electron/contracts.cjs). This guide explains relationships and invariants rather than duplicating every SQL column.
+
+## Editable documents and source evidence
+
+```mermaid
+flowchart TD
+  W[Workspace row] --> P[Projects in workspace JSON]
+  P --> D[Documents / Guides]
+  D --> E[Editable steps]
+  P -. project_id and workspace_id .-> S[Recording sessions]
+  D -. optional sessionId .-> S
+  S --> C[Capture rows]
+  E -. optional captureId .-> C
+  C --> F[Before / after PNG files]
+```
+
+The diagram shows logical relationships. Only `captures.session_id` is enforced as a SQL foreign key; project/document ownership is validated in application code.
+
+| Stored entity                            | Purpose                                                                                                                                                                          |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `workspaces`                             | Workspace ID/name plus a JSON array of projects in `data`. `NULL` data allows initialization; `[]` is an initialized empty workspace.                                            |
+| Project JSON                             | Name, description, documentation instructions and `documents`. Project IDs are unique within a workspace.                                                                        |
+| Document (`Guide`) JSON                  | Editable title, description and steps. A real recording normally has `sessionId`; sample documents use `demo` and may have no session. Document IDs are unique within a project. |
+| Step JSON                                | Editable instructions, screen label and optional capture reference/timing. Removing a step changes only the document.                                                            |
+| `sessions`                               | Original task/context, project/workspace ownership, instructions at start, selected display, start time, status and error.                                                       |
+| `captures`                               | UUID, session ID, sequence, click/frame metadata, image filenames and error. `(session_id, sequence)` is unique.                                                                 |
+| `settings`                               | The active workspace ID, restored on launch.                                                                                                                                     |
+| `deleted_projects`, `deleted_recordings` | Tombstones that prevent delayed document saves from recreating deleted content. Recording tombstones include document ID and optional session ID.                                |
+| `pending_file_deletions`                 | Exact image filenames to unlink after committing a deletion. Failed unlinks are retried during later cleanup, including launch.                                                  |
+
+Session and capture IDs are UUIDs. Source capture metadata includes normalized click coordinates, mouse button, click timestamp, selected display, and available frame dimensions/timestamps. PNGs are stored outside SQLite as `captures/<capture-id>-before.png` and `-after.png`; frames may be absent.
+
+## Ownership and saves
+
+- Every queued renderer save carries its workspace ID. Changing the active workspace must not redirect older edits to another workspace.
+- `useWorkspace.mutate` flushes pending edits before switching, renaming or deleting. The main-process IPC guards require an idle recorder for workspace mutations and project/recording deletion.
+- `saveWorkspace` validates the input and removes tombstoned projects/documents before validating capture references. Each referenced capture must belong to that document's session, project and workspace.
+- `mergeSessions` adds completed/interrupted sessions missing from document JSON. Existing documents are retained, so edited instructions and removed steps survive reload. Merely filtering a recording out of renderer JSON is insufficient to delete it: its session would be merged back.
+- Deleting a workspace removes its row. Subsequent saves to that ID fail `requireWorkspace`; they cannot recreate it. New workspaces receive fresh IDs.
+
+## What deletion means
+
+| Action           | Editable data                                                                          | Original evidence                                                                                    | Other effects                                                                             |
+| ---------------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Remove step      | Removes one step; in-memory Undo can restore it                                        | Retained                                                                                             | Export omits the removed step                                                             |
+| Delete recording | Removes its document and any documents referencing the same session within the project | Deletes session/capture rows; queues all their original frames, even those omitted from edited steps | Recording tombstones reject stale saves                                                   |
+| Delete project   | Removes the project and its documents                                                  | Deletes all project sessions/captures; queues their frames                                           | Project tombstone rejects stale saves                                                     |
+| Delete workspace | Removes the workspace, all projects/documents and its tombstones                       | Deletes all workspace sessions/captures; queues their frames                                         | Active workspace switches to the first remaining workspace; deleting the last is rejected |
+
+Exports are separate user-owned copies and are never included in these deletions. Deletion unlinks known files; it does not promise secure erasure from storage media, backups or external copies. Unreferenced files left by a crash are retained for recovery, not swept up by a broad directory delete.
+
+Deletion commits database changes and the file-cleanup queue in one transaction. A rollback restores both. File cleanup runs afterward because SQLite and the filesystem cannot share that transaction. The UI reports pending cleanup when files remain locked.
+
+## Crash recovery and image writes
+
+`saveFrame` writes an exclusive temporary file, flushes it, closes it and renames it before updating the capture row. A crash before the row update can leave an unreferenced PNG or temporary file; do not assume a file is safe to remove merely because it is not referenced.
+
+Opening `Storage` is a mutating operation: it migrates the database and marks unfinished sessions as interrupted. Captures with neither frame nor an existing error receive an incomplete-screenshot error. Recovered documents contain the evidence actually saved, not invented frames.
+
+For read-only diagnostics, use a read-only database connection instead of constructing `Storage`. Do not run tests against the normal user-data directory.
+
+## Schema history and location
+
+| Version | Migration                                                                                                                                    |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1       | Initial single workspace, sessions and captures                                                                                              |
+| 2       | Workspace catalog, active selection, session workspace ownership, project tombstones and file-deletion queue; legacy data becomes `personal` |
+| 3       | Recording tombstones                                                                                                                         |
+
+Workspace rename/deletion uses existing tables and required no further schema change. Future schema changes must add a new transactional migration and migration tests; do not rewrite an earlier migration. A database newer than the supported version blocks startup.
+
+Production data lives in `%APPDATA%\captura-desk`, with screenshots in its `captures` subfolder. Older data directories are not migrated or deleted; the new directory starts fresh on first launch. `CAPTURADESK_TEST_DATA` selects an isolated test directory. Browser preview uses localStorage through `use-workspace.ts` and does not provide native recording or SQLite durability. The prototype import key is `capturadesk-desktop-v1`; older browser keys are not imported.
+
+See [storage tests](../tests/storage.test.cjs) for migration, stale-save rejection, deletion isolation, rollback and restart coverage.

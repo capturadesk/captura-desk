@@ -1,0 +1,6 @@
+node_modules/
+dist/
+artifacts/
+*.log
+.electron-test/
+Resolve a failed payment.md

@@ -1,0 +1,7 @@
+node_modules
+dist
+artifacts
+.electron-test
+prototype-original.html
+package-lock.json
+Resolve a failed payment.md
