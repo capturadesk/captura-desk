@@ -1,3 +1,4 @@
+import { desktopLaunchOptions } from "./desktop-launch.mjs";
 import { _electron as electron, expect } from "@playwright/test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
@@ -8,7 +9,7 @@ const env = {
   CAPTURADESK_TEST_DATA: path.resolve(".electron-test", `run-${Date.now()}`),
 };
 delete env.ELECTRON_RUN_AS_NODE;
-const app = await electron.launch({ args: ["."], env });
+const app = await electron.launch(desktopLaunchOptions(env));
 const errors = [];
 try {
   const page = await app.firstWindow();

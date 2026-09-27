@@ -1,6 +1,6 @@
 # Local recorder architecture
 
-Status: Windows recorder with optional OpenAI/Anthropic draft generation, September 2026. Release packaging is not implemented.
+Status: Windows recorder with optional OpenAI/Anthropic draft generation, September 2026. Windows x64 NSIS packaging is configured; signing and automatic updates are not implemented. See [Windows release process](windows-release.md).
 
 See the [codebase map](codebase-map.md) for source ownership and a recording walkthrough, and the [data model](data-model.md) for schema relationships and retention rules.
 

@@ -18,7 +18,10 @@
     "check": "npm run typecheck && npm test && npm run format:check",
     "test:recording": "npm run build && node scripts/recording-smoke.mjs",
     "test:ai": "npm run build && node scripts/ai-smoke.mjs",
-    "icon:generate": "node scripts/generate-icon.cjs"
+    "icon:generate": "node scripts/generate-icon.cjs",
+    "pack:win": "npm run build && electron-builder --config electron-builder.json --win --x64 --dir --publish never",
+    "dist:win": "npm run build && electron-builder --config electron-builder.json --win nsis --x64 --publish never && node scripts/installer-checksum.mjs",
+    "test:packaged": "node scripts/packaged-smoke.mjs"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
@@ -44,10 +47,17 @@
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.4.0",
     "electron": "^44.4.5",
+    "electron-builder": "26.15.3",
     "prettier": "^3.9.9",
     "tailwindcss": "^4.1.0",
     "typescript": "~5.8.3",
     "vite": "^6.3.0"
   },
-  "productName": "Captura Desk"
+  "productName": "Captura Desk",
+  "author": "Captura Desk",
+  "homepage": "https://capturadesk.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/capturadesk/captura-desk.git"
+  }
 }

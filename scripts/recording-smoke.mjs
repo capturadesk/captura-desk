@@ -1,3 +1,4 @@
+import { desktopLaunchOptions } from "./desktop-launch.mjs";
 import { _electron as electron, expect } from "@playwright/test";
 import assert from "node:assert/strict";
 import path from "node:path";
@@ -12,7 +13,7 @@ const env = {
 delete env.ELECTRON_RUN_AS_NODE;
 let app, target;
 try {
-  app = await electron.launch({ args: ["."], env });
+  app = await electron.launch(desktopLaunchOptions(env));
   const page = await app.firstWindow();
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));

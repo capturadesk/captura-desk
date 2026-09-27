@@ -1,0 +1,44 @@
+{
+  "appId": "com.capturadesk.app",
+  "productName": "Captura Desk",
+  "directories": {
+    "output": "release",
+    "buildResources": "assets"
+  },
+  "files": [
+    "dist/**/*",
+    "electron/**/*",
+    "assets/icon.ico",
+    "assets/icon.png",
+    "package.json"
+  ],
+  "asar": true,
+  "asarUnpack": [
+    "node_modules/uiohook-napi/**/*",
+    "node_modules/koffi/**/*",
+    "node_modules/@koromix/**/*"
+  ],
+  "npmRebuild": false,
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "assets/icon.ico",
+    "executableName": "Captura Desk"
+  },
+  "nsis": {
+    "oneClick": true,
+    "perMachine": false,
+    "allowElevation": false,
+    "deleteAppDataOnUninstall": false,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Captura Desk",
+    "runAfterFinish": false,
+    "artifactName": "CapturaDesk-Setup-${version}-${arch}.exe"
+  },
+  "publish": null
+}

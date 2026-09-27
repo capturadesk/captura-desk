@@ -10,6 +10,7 @@ const { safeStorage, nativeImage, globalShortcut } = require("electron");
 const { AIService } = require("./ai/service.cjs");
 // Use the product's data directory; tests override it with an isolated profile.
 app.setName("Captura Desk");
+if (process.platform === "win32") app.setAppUserModelId("com.capturadesk.app");
 app.setPath(
   "userData",
   process.env.CAPTURADESK_TEST_DATA || path.join(app.getPath("appData"), "captura-desk"),

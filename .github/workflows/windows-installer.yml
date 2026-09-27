@@ -1,0 +1,26 @@
+name: Windows installer (unsigned)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.18.0"
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run dist:win
+      - run: npm run test:packaged
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CapturaDesk-Windows-x64-unsigned
+          path: |
+            release/CapturaDesk-Setup-*.exe
+            release/CapturaDesk-Setup-*.exe.sha256
+          if-no-files-found: error
+          retention-days: 14

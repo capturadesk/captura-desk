@@ -5,3 +5,5 @@ artifacts
 prototype-original.html
 package-lock.json
 Resolve a failed payment.md
+
+release/

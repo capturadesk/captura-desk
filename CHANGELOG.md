@@ -10,6 +10,8 @@ Notable user-facing changes to Captura Desk are recorded here, newest first. Thi
 
 ### Added
 
+- Windows x64 per-user installer build with the app icon, preserved user data on uninstall, SHA-256 checksums, and packaged-app smoke checks. Signing and public release qualification are pending.
+
 - Single-file HTML export with formatted Markdown, embedded annotated screenshots, and selected revision metadata for offline sharing.
 
 - Custom desktop window icon from PNG artwork, with a reproducible multi-size Windows icon conversion command.

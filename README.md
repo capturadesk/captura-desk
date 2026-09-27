@@ -59,7 +59,7 @@ Images and the SQLite database live in Electron's per-user application data dire
 
 Captura Desk stores its database in `%APPDATA%\captura-desk` and screenshots in `%APPDATA%\captura-desk\captures`. Older data directories and browser keys are not migrated or deleted. Development uses `CAPTURADESK_DEV_URL`; tests use `CAPTURADESK_TEST_DATA` to select isolated profiles. Previous environment-variable names are no longer supported.
 
-This is a working local recording milestone, not a release-ready product. Individual-window capture, OCR, PDF export, an installer, signing, and automatic updates are not implemented. Mixed-DPI configurations, elevated applications, protected content, and long-running sessions need further platform qualification. The before-frame is sampled, not guaranteed to be the exact frame immediately before the click.
+This is a working local recording milestone, not a release-ready product. Individual-window capture, OCR, PDF export, signing, and automatic updates are not implemented. A local Windows x64 installer build is available; clean-machine installation and upgrade qualification are still required. Mixed-DPI configurations, elevated applications, protected content, and long-running sessions need further platform qualification. The before-frame is sampled, not guaranteed to be the exact frame immediately before the click.
 
 ## Development checks
 
@@ -132,4 +132,8 @@ Click or tab into a document summary or step description to edit its raw Markdow
 
 ## Application icon
 
-The source artwork is `assets/icon.png`. After replacing it with a square PNG, run `npm run icon:generate` to regenerate the multi-size Windows icon at `assets/icon.ico`, then restart the app. The desktop windows use this icon; the custom title bar and browser preview use the source PNG. When Windows packaging is added, configure the executable and installer to use the same `.ico` file; the development Electron executable itself is unchanged.
+The source artwork is `assets/icon.png`. After replacing it with a square PNG, run `npm run icon:generate` to regenerate the multi-size Windows icon at `assets/icon.ico`, then restart the app. The desktop windows use this icon; the custom title bar and browser preview use the source PNG. The Windows executable and installer use the same `.ico` file; the development Electron executable itself is unchanged.
+
+## Windows installer
+
+Run `npm run dist:win` on Windows x64 to produce the installer and SHA-256 checksum under `release/`. Run `npm run test:packaged` to verify the packaged executable. Builds are unsigned unless signing is explicitly configured, and never publish automatically. Installation is per-user; uninstall is configured to preserve workspaces and recordings. See [Windows release process](docs/windows-release.md) for native recording tests, signing, manual updates, and clean-machine qualification.
