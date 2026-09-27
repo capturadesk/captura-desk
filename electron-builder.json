@@ -45,6 +45,10 @@
     {
       "from": "LICENSE.md",
       "to": "LICENSE.md"
+    },
+    {
+      "from": "NOTICE",
+      "to": "NOTICE"
     }
   ]
 }

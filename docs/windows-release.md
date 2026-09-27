@@ -62,3 +62,9 @@ Before broad distribution, choose a Windows signing service/certificate and conf
 The manual Windows installer workflow creates unsigned downloadable Actions artifacts with a limited retention period. It never creates tags or publishes GitHub Releases. After signing and qualification, create a versioned release in capturadesk/captura-desk, attach the installer and checksum, and add release notes including supported Windows versions and known capture limitations. Use the actual repository URL: https://github.com/capturadesk/captura-desk/releases.
 
 Updates are manual for this milestone: download the newer installer, close Captura Desk, and run it. No background updater or update-check network requests are added. Automatic updates are a later feature once signed release and upgrade testing are reliable. Update the website's availability text and download link only after the release exists.
+
+## Starter data and existing installations
+
+The installer packages application code and assets, not the development user profile. A fresh profile starts with Personal workspace and the three starter projects: Operations playbook, Customer onboarding, and Product walkthroughs. The packaged smoke test verifies the exact starter catalog and sample document, plus an empty capture directory, on both initial launch and restart.
+
+Development and installed copies intentionally share `%APPDATA%\captura-desk` on the same Windows account. Existing projects therefore appear after installation or reinstallation; this does not mean they were embedded in the installer. Do not delete or overwrite that directory to prepare a release. Use an isolated test profile or a clean Windows account to verify first-run behavior.

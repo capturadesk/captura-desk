@@ -140,6 +140,6 @@ Run `npm run dist:win` on Windows x64 to produce the installer and SHA-256 check
 
 ## License
 
-Captura Desk is source-available under the [Captura Desk Source-Available License](LICENSE.md), copyright 2026 Andrei Mititelu. Personal and qualifying non-commercial use is free. Version 0.2.0 includes a 90-day business evaluation; ongoing commercial use requires a separate written commercial agreement. Your documents and exports remain yours. This is not an OSI-approved open-source license. See the full license for permissions and restrictions.
+Captura Desk is open-source software licensed under the [Apache License 2.0](LICENSE.md). Copyright 2026 Andrei Mititelu; see [NOTICE](NOTICE). Personal and commercial use, modification, and redistribution are permitted subject to the license conditions. There is no business evaluation time limit or separate commercial-use license requirement. Third-party components retain their own licenses.
 
-Future packaged builds include the license in their resources directory. This repository change does not modify an already published installer or retroactively replace previously granted terms.
+Future packaged builds include LICENSE.md and NOTICE in their resources directory. This repository change does not modify an already published installer or retroactively replace previously granted terms.
