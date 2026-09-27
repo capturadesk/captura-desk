@@ -57,6 +57,40 @@ try {
   await page.getByRole("button", { name: "Undo change" }).click();
   assert.equal(await page.locator('.inspector button[aria-current="step"]').count(), 1);
 
+  await page.getByRole("button", { name: "Manage steps", exact: true }).click();
+  const manager = page.getByRole("dialog", { name: "Manage steps", exact: true });
+  const rows = manager
+    .getByRole("list", { name: "Editable workflow steps" })
+    .locator("li");
+  const order = await rows.evaluateAll((items) =>
+    items.map((item) => item.dataset.stepId),
+  );
+  await manager.getByRole("button", { name: "Move step 1 down", exact: true }).click();
+  assert.equal(await rows.first().getAttribute("data-step-id"), order[1]);
+  await manager.getByRole("button", { name: "Undo step change", exact: true }).click();
+  await rows.first().locator("[draggable]").dragTo(rows.nth(2));
+  assert.equal(await rows.nth(2).getAttribute("data-step-id"), order[0]);
+  await manager.getByRole("button", { name: "Undo step change", exact: true }).click();
+  await manager.getByRole("checkbox", { name: "Select step 1", exact: true }).check();
+  await manager.getByRole("checkbox", { name: "Select step 3", exact: true }).check();
+  await manager.getByRole("button", { name: "Remove selected", exact: true }).click();
+  await manager.getByRole("button", { name: "Cancel removal", exact: true }).click();
+  await expect(rows).toHaveCount(order.length);
+  await manager.getByRole("button", { name: "Remove selected", exact: true }).click();
+  await manager.getByRole("button", { name: "Confirm removal", exact: true }).click();
+  await expect(rows).toHaveCount(order.length - 2);
+  await manager.getByRole("button", { name: "Undo step change", exact: true }).click();
+  assert.deepEqual(
+    await rows.evaluateAll((items) => items.map((item) => item.dataset.stepId)),
+    order,
+  );
+  await manager.getByRole("checkbox", { name: "Select all steps", exact: true }).check();
+  await manager.getByRole("button", { name: "Remove selected", exact: true }).click();
+  await manager.getByRole("button", { name: "Confirm removal", exact: true }).click();
+  await expect(rows).toHaveCount(0);
+  await manager.getByRole("button", { name: "Undo step change", exact: true }).click();
+  await expect(rows).toHaveCount(order.length);
+  await manager.getByRole("button", { name: "Done", exact: true }).click();
   await page.getByRole("button", { name: "Instructions", exact: true }).click();
   await page
     .getByLabel("How should we document your work?")

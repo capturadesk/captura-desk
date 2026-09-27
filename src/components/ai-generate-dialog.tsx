@@ -1,4 +1,5 @@
-﻿import { useEffect, useRef, useState } from "react";
+import { RevisionComparison } from "./revision-comparison";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -161,23 +162,7 @@ export function AIGenerateDialog({
               {draft.provider} / {draft.model} /{" "}
               {new Date(draft.createdAt).toLocaleString()}
             </p>
-            {instruction && (
-              <details className="rounded-md border p-3 text-sm">
-                <summary className="cursor-pointer">
-                  Compare with current document
-                </summary>
-                <h3 className="mt-3 font-medium">{guide.title}</h3>
-                <p className="whitespace-pre-wrap">{guide.description}</p>
-                {guide.steps.map((step, i) => (
-                  <div key={step.id} className="mt-3">
-                    <h4 className="font-medium">
-                      {i + 1}. {step.title}
-                    </h4>
-                    <p className="whitespace-pre-wrap">{step.description}</p>
-                  </div>
-                ))}
-              </details>
-            )}
+            <RevisionComparison guide={guide} draft={draft} />
             <h3 className="text-lg font-medium">{draft.output.title}</h3>
             <p className="whitespace-pre-wrap text-sm">{draft.output.description}</p>
             {draft.output.steps.map((step, index) => (

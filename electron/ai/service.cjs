@@ -156,6 +156,8 @@ class AIService {
           id: step.captureId,
           point: metadata.point,
           button: metadata.button,
+          trigger: metadata.trigger || "click",
+          application: metadata.application || undefined,
           frames,
         });
       }

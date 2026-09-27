@@ -113,6 +113,7 @@ function registerIPC({
     indicators.hide();
     return recorder.start(data);
   });
+  handle("recording:capture", null, () => recorder.captureNow(), true);
   handle("recording:pause", null, () => recorder.pause(), true);
   handle("recording:resume", null, () => recorder.resume(), true);
   handle("recording:stop", null, () => recorder.stop(), true);
@@ -126,6 +127,13 @@ function registerIPC({
     },
     true,
   );
+  handle("capture:annotation-read", c.captureRequest, (data) =>
+    storage.image(data.id, data.frame, true),
+  );
+  handle("capture:annotation-save", c.annotationSave, (data) => {
+    requireIdle();
+    storage.saveAnnotations(data);
+  });
   handle("capture:image", c.captureRequest, (data) => storage.image(data.id, data.frame));
   handle("export-markdown", c.exportRequest, async ({ projectId, guideId }) => {
     const guide = storage
@@ -152,11 +160,13 @@ function registerIPC({
             const dir = path.join(path.dirname(result.filePath), assets);
             await fs.mkdir(dir, { recursive: true });
             const name = `step-${index + 1}-${kind}.png`;
-            await fs.copyFile(
-              path.join(storage.images, row[`${kind}_file`]),
+            const edited = await storage.image(step.captureId, kind);
+            if (!edited.dataUrl) throw new Error("Screenshot unavailable");
+            await fs.writeFile(
               path.join(dir, name),
+              Buffer.from(edited.dataUrl.split(",")[1], "base64"),
             );
-            text += `![${kind === "before" ? "Before click" : "After click"}](${encodeURIComponent(assets)}/${name})\n\n`;
+            text += `![${JSON.parse(row.metadata).trigger === "manual" ? "Manual screenshot" : kind === "before" ? "Before click" : "After click"}](${encodeURIComponent(assets)}/${name})\n\n`;
           }
       }
     }

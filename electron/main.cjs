@@ -6,7 +6,7 @@ const { WindowsCapture } = require("./recording/windows.cjs");
 const { Recorder } = require("./recording/recorder.cjs");
 const { registerIPC } = require("./ipc.cjs");
 const { DisplayIndicators } = require("./recording/display-indicators.cjs");
-const { safeStorage, nativeImage } = require("electron");
+const { safeStorage, nativeImage, globalShortcut } = require("electron");
 const { AIService } = require("./ai/service.cjs");
 // Use the product's data directory; tests override it with an isolated profile.
 app.setName("Captura Desk");
@@ -32,6 +32,8 @@ if (!app.requestSingleInstanceLock()) {
     .whenReady()
     .then(() => {
       storage = new Storage(app.getPath("userData"));
+      storage.renderAnnotations = (png, boxes) =>
+        require("./annotations.cjs").render(nativeImage, png, boxes);
       storage.cleanupDeletedFiles().catch(() => {});
       recorder = new Recorder(storage, new WindowsCapture());
       ai = new AIService(storage, safeStorage, (url) => {
@@ -129,7 +131,22 @@ if (!app.requestSingleInstanceLock()) {
         for (const win of [mainWindow, toolbar])
           if (win && !win.isDestroyed()) win.webContents.send(channel, data);
       }
+      const captureShortcut = "CommandOrControl+Shift+S";
+      let shortcutStatus = "idle";
       recorder.on("state", (state) => {
+        if (shortcutStatus !== state.status) {
+          shortcutStatus = state.status;
+          globalShortcut.unregister(captureShortcut);
+          if (state.status === "recording") {
+            const registered = globalShortcut.register(captureShortcut, () => {
+              recorder
+                .captureNow()
+                .catch((error) => recorder.publish({ hint: error.message }));
+            });
+            if (!registered)
+              state.hint = "Capture shortcut unavailable. Use Capture now.";
+          }
+        }
         if (state.status === "recording" && !toolbar) {
           const area = (
             screen
@@ -138,9 +155,9 @@ if (!app.requestSingleInstanceLock()) {
             screen.getPrimaryDisplay()
           ).workArea;
           toolbar = new BrowserWindow({
-            width: 540,
+            width: 680,
             height: 104,
-            x: area.x + Math.round((area.width - 540) / 2),
+            x: area.x + Math.round((area.width - 680) / 2),
             y: area.y + area.height - 124,
             frame: false,
             resizable: false,

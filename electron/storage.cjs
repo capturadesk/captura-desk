@@ -197,11 +197,16 @@ class Storage {
           return {
             id: c.id,
             captureId: c.id,
-            title: `${m.button === 2 ? "Right-click" : m.button === 3 ? "Middle-click" : "Click"} on ${JSON.parse(session.display).name}`,
+            title:
+              m.trigger === "manual"
+                ? `Screenshot of ${JSON.parse(session.display).name}`
+                : `${m.button === 2 ? "Right-click" : m.button === 3 ? "Middle-click" : "Click"} on ${m.application || JSON.parse(session.display).name}`,
             description: c.error
               ? `Capture issue: ${c.error}`
               : "Describe what you did and why. This step has not been interpreted by AI.",
-            screen: JSON.parse(session.display).name,
+            screen: m.application
+              ? `${m.application} - ${JSON.parse(session.display).name}`
+              : JSON.parse(session.display).name,
             capturedAt: m.clickedAt,
             elapsedMs: m.clickedAt - session.started_at,
           };
@@ -539,13 +544,28 @@ class Storage {
     if (!row) throw new Error("Capture not found");
     return row;
   }
-  async image(id, kind) {
+  saveAnnotations(input) {
+    const { id, frame, boxes } = contracts.annotationSave.parse(input);
+    const row = this.capture(id);
+    if (!row[frame + "_file"]) throw new Error("Screenshot not found");
+    const metadata = JSON.parse(row.metadata);
+    metadata.annotations = { ...metadata.annotations, [frame]: boxes };
+    this.db
+      .prepare("UPDATE captures SET metadata=? WHERE id=?")
+      .run(JSON.stringify(metadata), id);
+  }
+  async image(id, kind, original = false) {
     const row = this.capture(id);
     const file = row[`${kind}_file`];
+    let png = file ? await fsp.readFile(path.join(this.images, file)) : null;
+    const boxes = JSON.parse(row.metadata).annotations?.[kind] || [];
+    if (png && boxes.length && !original) {
+      if (!this.renderAnnotations)
+        throw new Error("Cannot render screenshot edits. Nothing was sent.");
+      png = this.renderAnnotations(png, boxes);
+    }
     return {
-      dataUrl: file
-        ? `data:image/png;base64,${(await fsp.readFile(path.join(this.images, file))).toString("base64")}`
-        : null,
+      dataUrl: png ? "data:image/png;base64," + png.toString("base64") : null,
       metadata: JSON.parse(row.metadata),
       error: row.error,
     };

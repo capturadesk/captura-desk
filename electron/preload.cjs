@@ -37,12 +37,16 @@ contextBridge.exposeInMainWorld("desktop", {
   identifyDisplays: () => ipcRenderer.invoke("recording:identify"),
   recordingState: () => ipcRenderer.invoke("recording:state"),
   startRecording: (input) => ipcRenderer.invoke("recording:start", input),
+  captureNow: () => ipcRenderer.invoke("recording:capture"),
   pauseRecording: () => ipcRenderer.invoke("recording:pause"),
   resumeRecording: () => ipcRenderer.invoke("recording:resume"),
   stopRecording: () => ipcRenderer.invoke("recording:stop"),
   showWorkspace: () => ipcRenderer.invoke("recording:show"),
   onRecordingState: (callback) => subscribe("recording:state", callback),
   onRecordingFinished: (callback) => subscribe("recording:finished", callback),
+  annotationRead: (id, frame) =>
+    ipcRenderer.invoke("capture:annotation-read", { id, frame }),
+  annotationSave: (input) => ipcRenderer.invoke("capture:annotation-save", input),
   captureImage: (id, frame) => ipcRenderer.invoke("capture:image", { id, frame }),
   exportMarkdown: (input) => ipcRenderer.invoke("export-markdown", input),
 });

@@ -1,3 +1,4 @@
+import { ManageSteps } from "@/components/manage-steps";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowDownToLine,
@@ -98,6 +99,7 @@ export default function App() {
   const [starting, setStarting] = useState(false);
   const [aiSettings, setAISettings] = useState(false);
   const [aiGenerate, setAIGenerate] = useState(false);
+  const [manageSteps, setManageSteps] = useState(false);
   const [aiEdit, setAIEdit] = useState("");
   const [renameRevision, setRenameRevision] = useState(false);
   const [revisionName, setRevisionName] = useState("");
@@ -1102,9 +1104,17 @@ export default function App() {
                     <aside className="inspector scrollbar flex w-[278px] shrink-0 flex-col overflow-auto border-l bg-white px-5 py-5">
                       <div className="flex items-center justify-between">
                         <h2 className="text-[11px] font-medium">Workflow steps</h2>
-                        <span className="text-[10px] text-neutral-400">
-                          {guide.steps.length}
-                        </span>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="size-7 text-neutral-400 hover:text-neutral-700"
+                          aria-label="Manage steps"
+                          title="Reorder or remove steps"
+                          disabled={recording || workspaceBusy}
+                          onClick={() => setManageSteps(true)}
+                        >
+                          <Settings2 className="size-3.5" />
+                        </Button>
                       </div>
                       <p className="mb-5 mt-1 text-[10px] text-neutral-400">
                         Each action, in context.
@@ -1550,6 +1560,24 @@ export default function App() {
             </form>
           </DialogContent>
         </Dialog>
+        {manageSteps && guide && (
+          <ManageSteps
+            key={guide.id}
+            steps={guide.steps}
+            onClose={() => setManageSteps(false)}
+            onChange={(steps) => {
+              setUndo(structuredClone(guide));
+              const activeId = step?.id;
+              updateGuide({ steps });
+              setStepIndex(
+                Math.max(
+                  0,
+                  steps.findIndex((s) => s.id === activeId),
+                ),
+              );
+            }}
+          />
+        )}
         {aiSettings && <AIProviderSettings onClose={() => setAISettings(false)} />}
         {(aiGenerate || aiEdit) && guide && window.desktop && (
           <AIGenerateDialog

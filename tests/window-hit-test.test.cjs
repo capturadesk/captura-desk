@@ -19,3 +19,10 @@ test("actual clicks on Captura Desk and its floating toolbar are excluded", () =
   assert.equal(isOwnWindow("100", [window(100), window(101)]), true);
   assert.equal(isOwnWindow("101", [window(100), window(101)]), true);
 });
+
+test("application names use a friendly label or executable basename without paths", () => {
+  const { applicationName } = require("../electron/recording/application-name.cjs");
+  assert.equal(applicationName("C:\\Program Files\\Chrome\\chrome.exe"), "Google Chrome");
+  assert.equal(applicationName("C:\\Users\\Private\\Code.exe"), "Visual Studio Code");
+  assert.equal(applicationName("C:\\Tools\\MyApp.exe"), "MyApp");
+});

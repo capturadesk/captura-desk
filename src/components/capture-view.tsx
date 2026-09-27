@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ScreenshotZoom } from "./screenshot-zoom";
 import { SampleScreen } from "./sample-screen";
@@ -13,12 +13,21 @@ export function CaptureView({
 }) {
   const [frame, setFrame] = useState<"before" | "after">("before");
   const [image, setImage] = useState<CaptureImage | null>(null);
+  const loadedFrame = useRef("");
+  const [editVersion, setEditVersion] = useState(0);
+  useEffect(() => {
+    const reload = () => setEditVersion((v) => v + 1);
+    window.addEventListener("capture-edited", reload);
+    return () => window.removeEventListener("capture-edited", reload);
+  }, []);
   const [error, setError] = useState("");
   useEffect(() => {
     setFrame("before");
   }, [step.id]);
   useEffect(() => {
-    setImage(null);
+    const identity = step.captureId + ":" + frame + ":" + compact;
+    if (loadedFrame.current !== identity) setImage(null);
+    loadedFrame.current = identity;
     setError("");
     let canceled = false;
     if (step.captureId && window.desktop)
@@ -30,12 +39,15 @@ export function CaptureView({
           if (!canceled) setImage(result);
         })
         .catch((e) => {
-          if (!canceled) setError(errorMessage(e));
+          if (!canceled) {
+            setImage(null);
+            setError(errorMessage(e));
+          }
         });
     return () => {
       canceled = true;
     };
-  }, [step.captureId, frame, compact]);
+  }, [step.captureId, frame, compact, editVersion]);
   if (!step.captureId)
     return (
       <SampleScreen
@@ -46,11 +58,14 @@ export function CaptureView({
         compact={compact}
       />
     );
-  const label = `${frame === "before" ? "Before" : "After"} click: ${step.title}`;
+  const manual = image?.metadata.trigger === "manual";
+  const label = manual
+    ? `Manual screenshot: ${step.title}`
+    : `${frame === "before" ? "Before" : "After"} click: ${step.title}`;
   const screenshot = image?.dataUrl && (
     <>
       <img src={image.dataUrl} alt={label} className="block h-auto w-full" />
-      {frame === "before" && (
+      {frame === "before" && image.metadata.point && (
         <span
           aria-label="Click location"
           style={{
@@ -72,20 +87,23 @@ export function CaptureView({
             className="h-7 text-[10px]"
             onClick={() => setFrame("before")}
           >
-            Before click
+            {manual ? "Screenshot" : "Before click"}
           </Button>
           <Button
             variant={frame === "after" ? "secondary" : "ghost"}
             size="sm"
             className="h-7 text-[10px]"
+            disabled={manual}
             onClick={() => setFrame("after")}
           >
             After click
           </Button>
           <span className="ml-auto text-[9px] text-neutral-400">
-            {image?.metadata[frame]
-              ? `${frame === "before" ? "Sampled" : "Captured"} ${Math.abs(image.metadata[frame]!.capturedAt - image.metadata.clickedAt)} ms ${frame === "before" ? "before" : "after"} click`
-              : ""}
+            {manual
+              ? "Manually captured"
+              : image?.metadata[frame]
+                ? `${frame === "before" ? "Sampled" : "Captured"} ${Math.abs(image.metadata[frame]!.capturedAt - image.metadata.clickedAt)} ms ${frame === "before" ? "before" : "after"} click`
+                : ""}
           </span>
         </div>
       )}
@@ -95,9 +113,11 @@ export function CaptureView({
         ) : (
           <ScreenshotZoom
             key={step.captureId + frame}
+            captureId={step.captureId}
+            frame={frame}
             src={image.dataUrl}
             label={label}
-            point={frame === "before" ? image.metadata.point : undefined}
+            point={frame === "before" ? image.metadata.point || undefined : undefined}
           >
             {screenshot}
           </ScreenshotZoom>

@@ -127,7 +127,7 @@ class Recorder extends EventEmitter {
       ![1, 2, 3, 4, 5].includes(event.button)
     )
       return;
-    let point;
+    let point, application;
     try {
       this.platform.validateDisplay(this.session.display);
       const result = this.platform.classify
@@ -137,6 +137,7 @@ class Recorder extends EventEmitter {
             reason: "outside-display",
           };
       point = result.point;
+      application = result.application;
       const change = { seen: this.state.seen + 1 };
       if (!point && result.reason === "outside-display") {
         change.ignoredOutside = this.state.ignoredOutside + 1;
@@ -174,6 +175,7 @@ class Recorder extends EventEmitter {
       id = this.storage.addCapture(this.session.id, ++this.sequence, {
         clickedAt: event.clickedAt,
         button: event.button,
+        application: typeof application === "string" ? application.slice(0, 120) : null,
         point,
         display: this.session.display,
         before: null,
@@ -196,6 +198,50 @@ class Recorder extends EventEmitter {
       })
       .finally(() => this.jobs.delete(job));
     this.jobs.add(job);
+  }
+  async captureNow() {
+    if (this.state.status !== "recording")
+      throw new Error("Resume recording before capturing a screenshot.");
+    if (this.manualPending || this.jobs.size >= this.maxPending)
+      throw new Error("A capture is still being saved. Try again shortly.");
+    this.platform.validateDisplay(this.session.display);
+    const generation = this.generation;
+    const id = this.storage.addCapture(this.session.id, ++this.sequence, {
+      clickedAt: Date.now(),
+      trigger: "manual",
+      button: null,
+      point: null,
+      application: null,
+      display: this.session.display,
+      before: null,
+      after: null,
+    });
+    this.manualPending = true;
+    this.publish({ count: this.state.count + 1, hint: "Capturing screenshot..." });
+    const job = (async () => {
+      // A manual capture requests a fresh frame rather than a sampled before-frame.
+      const frame = await this.platform.frame(this.session.display);
+      if (generation !== this.generation || this.state.status !== "recording")
+        throw new Error("Manual capture canceled because recording paused or stopped.");
+      await this.storage.saveFrame(id, "before", frame);
+      this.emit("capture", id);
+      this.publish({ hint: "Screenshot captured." });
+    })()
+      .catch((error) => {
+        try {
+          this.storage.captureError(id, error.message);
+        } catch {}
+        this.publish({ failed: this.state.failed + 1 });
+        if (generation === this.generation) this.fail(error);
+        throw error;
+      })
+      .finally(() => {
+        this.jobs.delete(job);
+        this.manualPending = false;
+      });
+    this.jobs.add(job);
+    await job;
+    return this.snapshot();
   }
   async saveClick(id, before, clickedAt, generation) {
     if (before) await this.storage.saveFrame(id, "before", before);

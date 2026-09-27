@@ -258,3 +258,50 @@ test("a concurrent stop prevents resume from restarting capture", async (t) => {
   assert.equal(f.recorder.state.status, "idle");
   assert.equal(f.platform.running, false);
 });
+
+test("accepted clicks retain the detected application name", async () => {
+  const { recorder, platform, captures } = fixture();
+  platform.classify = (event) => ({
+    point: platform.point(event),
+    application: "Google Chrome",
+  });
+  await recorder.start(input);
+  click(platform);
+  await recorder.stop();
+  assert.equal(captures[0].metadata.application, "Google Chrome");
+});
+
+test("manual captures save a fresh single frame without a fake click and reject paused requests", async () => {
+  const f = fixture();
+  await assert.rejects(f.recorder.captureNow(), /Resume/);
+  await f.recorder.start(input);
+  const before = f.platform.frames;
+  await f.recorder.captureNow();
+  assert.ok(f.platform.frames > before);
+  assert.equal(f.captures[0].metadata.trigger, "manual");
+  assert.equal(f.captures[0].metadata.point, null);
+  assert.ok(f.captures[0].before);
+  assert.equal(f.captures[0].after, undefined);
+  f.recorder.pause();
+  await assert.rejects(f.recorder.captureNow(), /Resume/);
+  await f.recorder.stop();
+});
+
+test("pause discards an in-flight manual frame and duplicate requests are rejected", async () => {
+  const f = fixture();
+  await f.recorder.start(input);
+  let release;
+  f.platform.frame = () =>
+    new Promise((resolve) => {
+      release = resolve;
+    });
+  const request = f.recorder.captureNow();
+  const rejected = assert.rejects(request, /canceled/);
+  await assert.rejects(f.recorder.captureNow(), /still being saved/);
+  f.recorder.pause();
+  release({ png: Buffer.from("late"), width: 10, height: 10, capturedAt: Date.now() });
+  await rejected;
+  assert.equal(f.captures[0].before, undefined);
+  assert.match(f.captures[0].error, /canceled/);
+  await f.recorder.stop();
+});

@@ -37,9 +37,19 @@ class WindowsCapture extends EventEmitter {
         actualDisplay: this.listDisplays().find((d) => contains(d.bounds, dip))?.name,
       };
     this.hitTest ??= createWindowHitTest();
-    if (isOwnWindow(this.hitTest(event), BrowserWindow.getAllWindows()))
+    const target = this.hitTest(event);
+    if (isOwnWindow(target, BrowserWindow.getAllWindows()))
       return { point: null, reason: "app-window" };
+    let application = null;
+    try {
+      this.applicationLookup ??=
+        require("./application-name.cjs").createApplicationLookup();
+      application = this.applicationLookup(target);
+    } catch {
+      /* Optional metadata must never interrupt recording. */
+    }
     return {
+      application,
       point: {
         x: (dip.x - display.bounds.x) / display.bounds.width,
         y: (dip.y - display.bounds.y) / display.bounds.height,

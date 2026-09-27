@@ -176,6 +176,95 @@ try {
     exact: true,
   });
   await expect(zoomDialog.getByRole("img", { name: /Before click/ })).toBeVisible();
+  await zoomDialog
+    .getByRole("button", { name: "Annotate screenshot", exact: true })
+    .click();
+  const editor = page.getByRole("dialog", { name: "Edit screenshot", exact: true });
+  const surface = editor.getByLabel("Draw screenshot annotations", { exact: true });
+  await expect(surface).toBeVisible();
+  const annotationBounds = await surface.boundingBox();
+  await page.mouse.move(
+    annotationBounds.x + annotationBounds.width * 0.1,
+    annotationBounds.y + annotationBounds.height * 0.1,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    annotationBounds.x + annotationBounds.width * 0.4,
+    annotationBounds.y + annotationBounds.height * 0.4,
+  );
+  await page.mouse.up();
+  await expect(editor.getByText(/1\/100 boxes/)).toBeVisible();
+  await editor.getByRole("button", { name: "Undo box", exact: true }).click();
+  await expect(editor.getByText(/0\/100 boxes/)).toBeVisible();
+  await page.mouse.move(
+    annotationBounds.x + annotationBounds.width * 0.1,
+    annotationBounds.y + annotationBounds.height * 0.1,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    annotationBounds.x + annotationBounds.width * 0.4,
+    annotationBounds.y + annotationBounds.height * 0.4,
+  );
+  await page.mouse.up();
+  await editor
+    .getByRole("button", { name: "Save screenshot edits", exact: true })
+    .click();
+  await expect(editor).toHaveCount(0);
+  await zoomDialog
+    .getByRole("button", { name: "Annotate screenshot", exact: true })
+    .click();
+  await expect(editor.getByText(/1\/100 boxes/)).toBeVisible();
+  await editor.getByRole("button", { name: "Clear boxes", exact: true }).click();
+  await editor.getByRole("button", { name: "Cancel edits", exact: true }).click();
+  const selectedCapture = original[0].documents.find(
+    (d) => d.title === "AI test recording",
+  ).steps[0].captureId;
+  const rendered = await page.evaluate(
+    (id) => window.desktop.captureImage(id, "before"),
+    selectedCapture,
+  );
+  await app.evaluate(({ nativeImage }, url) => {
+    const image = nativeImage.createFromDataURL(url);
+    const { width, height } = image.getSize();
+    const offset = (Math.floor(height * 0.2) * width + Math.floor(width * 0.2)) * 4;
+    const bytes = image.toBitmap();
+    if (
+      bytes[offset] !== 0 ||
+      bytes[offset + 1] !== 0 ||
+      bytes[offset + 2] !== 0 ||
+      bytes[offset + 3] !== 255
+    )
+      throw Error("Redaction was not flattened");
+  }, rendered.dataUrl);
+  const exportPath = path.join(env.CAPTURADESK_TEST_DATA, "redacted-export.md");
+  await app.evaluate(({ dialog }, filePath) => {
+    dialog.showSaveDialog = async () => ({ canceled: false, filePath });
+  }, exportPath);
+  await page.evaluate(
+    ({ projectId, guideId }) => window.desktop.exportMarkdown({ projectId, guideId }),
+    {
+      projectId: original[0].id,
+      guideId: original[0].documents.find((d) => d.title === "AI test recording").id,
+    },
+  );
+  await app.evaluate(({ nativeImage }, filePath) => {
+    const fs = process.getBuiltinModule("fs"),
+      path = process.getBuiltinModule("path");
+    const markdown = fs.readFileSync(filePath, "utf8");
+    const link = markdown.match(/!\[Before click\]\(([^)]+)\)/)[1];
+    const image = nativeImage.createFromPath(
+      path.join(path.dirname(filePath), decodeURIComponent(link)),
+    );
+    const { width, height } = image.getSize();
+    const pixel = (Math.floor(height * 0.2) * width + Math.floor(width * 0.2)) * 4;
+    if (
+      image
+        .toBitmap()
+        .subarray(pixel, pixel + 3)
+        .some((value) => value !== 0)
+    )
+      throw Error("Export leaked original pixels");
+  }, exportPath);
   await zoomDialog.getByRole("button", { name: "Actual size", exact: true }).click();
   await expect(zoomDialog.getByLabel("Zoom level", { exact: true })).toHaveText("100%");
   await zoomDialog.getByRole("button", { name: "Zoom in", exact: true }).click();
@@ -227,6 +316,25 @@ try {
   await expect(
     dialog.getByText("Review needed: the evidence was uncertain."),
   ).toBeVisible();
+  await dialog.getByText("Compare with current document", { exact: true }).click();
+  const comparison = dialog.getByRole("region", {
+    name: "Revision comparison",
+    exact: true,
+  });
+  await expect(comparison.getByText("Current document", { exact: true })).toBeVisible();
+  await expect(comparison.getByText("Proposed document", { exact: true })).toBeVisible();
+  await expect(comparison.locator("ins").first()).toBeVisible();
+  await expect(comparison.locator("del").first()).toBeVisible();
+  await expect(
+    comparison.getByRole("heading", { name: /Step 2.*Excluded/ }),
+  ).toBeVisible();
+  await comparison
+    .getByRole("checkbox", { name: "Show only changes", exact: true })
+    .check();
+  await expect(
+    comparison.getByRole("heading", { name: /Step 2.*Excluded/ }),
+  ).toBeVisible();
+  await dialog.getByText("Compare with current document", { exact: true }).click();
   assert.deepEqual(await page.evaluate(() => window.desktop.loadWorkspace()), original);
   await dialog.getByRole("button", { name: "Close", exact: true }).first().click();
   await page.reload();

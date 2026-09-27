@@ -178,6 +178,14 @@ try {
     )
     .toBeGreaterThanOrEqual(1);
   await page.evaluate(() => window.desktop.pauseRecording());
+  if (control)
+    await expect(
+      control.getByRole("button", { name: "Capture now", exact: true }),
+    ).toBeDisabled();
+  await assert.rejects(
+    page.evaluate(() => window.desktop.captureNow()),
+    /Resume/,
+  );
   const pausedCount = (await page.evaluate(() => window.desktop.recordingState())).count;
   await clickTarget();
   assert.equal(
@@ -190,12 +198,39 @@ try {
     .poll(() => page.evaluate(() => window.desktop.recordingState()).then((s) => s.count))
     .toBeGreaterThanOrEqual(pausedCount + 1);
   await new Promise((r) => setTimeout(r, 650));
+  assert.equal(
+    await app.evaluate(({ globalShortcut }) =>
+      globalShortcut.isRegistered("CommandOrControl+Shift+S"),
+    ),
+    true,
+  );
+  if (control) {
+    await control.getByRole("button", { name: "Capture now", exact: true }).click();
+    await expect(
+      control.getByRole("button", { name: "Capture now", exact: true }),
+    ).toBeEnabled();
+  }
   const result = await page.evaluate(() => window.desktop.stopRecording());
+  assert.equal(
+    await app.evaluate(({ globalShortcut }) =>
+      globalShortcut.isRegistered("CommandOrControl+Shift+S"),
+    ),
+    false,
+  );
   const guide = result.projects[0].documents.find(
     (d) => d.sessionId === result.sessionId,
   );
   assert.equal(guide.demo, false);
   assert.ok(guide.steps.length >= 2);
+  const manual = guide.steps.find((step) => step.title.startsWith("Screenshot of "));
+  assert.ok(manual, "Toolbar creates a manual screenshot step");
+  const manualImage = await page.evaluate(
+    (id) => window.desktop.captureImage(id, "before"),
+    manual.captureId,
+  );
+  assert.equal(manualImage.metadata.trigger, "manual");
+  assert.equal(manualImage.metadata.point, null);
+  assert.ok(manualImage.dataUrl);
   // A developer may click elsewhere during an interactive run. Select the
   // controlled target's center click rather than assuming it is capture #1.
   let targetStep;
@@ -205,10 +240,16 @@ try {
       step.captureId,
     );
     if (
-      Math.abs(frame.metadata.point.x - 0.5) < 0.05 &&
-      Math.abs(frame.metadata.point.y - 0.5) < 0.08 &&
+      Math.abs(frame.metadata.point?.x - 0.5) < 0.05 &&
+      Math.abs(frame.metadata.point?.y - 0.5) < 0.08 &&
+      frame.metadata.after &&
       frame.dataUrl
     ) {
+      assert.ok(frame.metadata.application, "Native application lookup succeeded");
+      assert.ok(
+        step.title.endsWith(frame.metadata.application),
+        "Step title identifies the clicked application",
+      );
       targetStep = step;
       break;
     }

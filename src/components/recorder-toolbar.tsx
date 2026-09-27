@@ -30,8 +30,19 @@ export function RecorderToolbar() {
             {String(Math.floor(seconds / 60)).padStart(2, "0")}:
             {String(seconds % 60).padStart(2, "0")}
           </span>
-          <span className="ml-3 text-[10px] text-neutral-500">{state.count} clicks</span>
+          <span className="ml-3 text-[10px] text-neutral-500">
+            {state.count} captures
+          </span>
         </div>
+        <Button
+          size="sm"
+          variant="outline"
+          title="Capture now (Ctrl+Shift+S)"
+          disabled={busy || state.status !== "recording"}
+          onClick={() => action(() => window.desktop!.captureNow())}
+        >
+          Capture now
+        </Button>
         <Button
           variant="ghost"
           size="icon"

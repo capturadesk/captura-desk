@@ -1,4 +1,5 @@
-﻿import { useEffect, useRef, useState, type ReactNode } from "react";
+import { AnnotationEditor } from "./annotation-editor";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ZoomIn, ZoomOut, Maximize, Scan } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,7 +16,11 @@ export function ScreenshotZoom({
   label,
   point,
   children,
+  captureId,
+  frame,
 }: {
+  captureId?: string;
+  frame?: "before" | "after";
   src: string;
   label: string;
   point?: { x: number; y: number };
@@ -83,6 +88,7 @@ export function ScreenshotZoom({
           <DialogDescription className="truncate">{label}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-wrap items-center gap-2">
+          {captureId && frame && <AnnotationEditor captureId={captureId} frame={frame} />}
           <Button
             variant="outline"
             size="icon"

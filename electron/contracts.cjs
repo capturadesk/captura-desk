@@ -60,5 +60,22 @@ module.exports = {
     displayId: z.string().min(1).max(40),
   }),
   exportRequest: z.object({ projectId: id, guideId: id }),
+  annotationSave: z.object({
+    id: uuid,
+    frame: z.enum(["before", "after"]),
+    boxes: z
+      .array(
+        z
+          .object({
+            kind: z.enum(["highlight", "redact"]),
+            x: z.number().min(0).max(1),
+            y: z.number().min(0).max(1),
+            width: z.number().positive().max(1),
+            height: z.number().positive().max(1),
+          })
+          .refine((b) => b.x + b.width <= 1.000001 && b.y + b.height <= 1.000001),
+      )
+      .max(100),
+  }),
   captureRequest: z.object({ id: uuid, frame: z.enum(["before", "after"]) }),
 };

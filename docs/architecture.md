@@ -75,7 +75,7 @@ The main process loads the saved document by ID, presents the native Save dialog
 - Real recording smoke: controlled Windows window, native mouse injection guarded by window ownership at the click coordinates, real before/after screenshots, pause/resume, review, persistence, and export with images.
 - CI runs type checks, formatting, unit tests, production build, and the non-recording desktop smoke. The real recording test is explicit and requires an interactive Windows desktop.
 
-Remaining release checks: mixed-DPI monitors (125%, 150%, 200%), negative display origins, long sessions and storage pressure, UAC/elevated apps, protected content, remote desktops, installer behavior, signing, and updates. Display-source selection currently supports monitors, not individual application windows. No standalone OCR, redaction, individual capture-deletion UI, or semantic deduplication is implemented yet.
+Remaining release checks: mixed-DPI monitors (125%, 150%, 200%), negative display origins, long sessions and storage pressure, UAC/elevated apps, protected content, remote desktops, installer behavior, signing, and updates. Display-source selection currently supports monitors, not individual application windows. No standalone OCR, individual capture-deletion UI, or semantic deduplication is implemented yet.
 
 ## Workspaces and deletion (schema version 4)
 
@@ -89,4 +89,4 @@ The v2-to-v3 migration adds recording tombstones. Confirmed recording deletion r
 
 Workspace settings rename the current workspace or delete it after confirmation. Workspace deletion atomically removes its row, sessions, captures and tombstones, queues exact filenames, and switches the active selection to a remaining workspace when needed. Deleting the last workspace is rejected. Delayed saves to a deleted workspace fail existence validation. These operations use the v3 tables without a new migration and require an idle recorder at the IPC boundary.
 
-Optional AI generation now uses selected captures to create persistent drafts through OpenAI or Anthropic. Saving a draft creates a separate document and preserves manual edits in the original. See [AI integration](ai.md) for credential storage, request boundaries and validation. Next milestones include redaction, richer retention controls and live-provider quality evaluation.
+Optional AI generation now uses selected captures to create persistent drafts through OpenAI or Anthropic. Saving a draft creates a separate document and preserves manual edits in the original. See [AI integration](ai.md) for credential storage, request boundaries and validation. Next milestones include richer retention controls and live-provider quality evaluation.

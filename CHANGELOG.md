@@ -6,6 +6,16 @@ Notable user-facing changes to Captura Desk are recorded here, newest first. Thi
 
 ### Added
 
+- Manual screenshots from the recording toolbar or Ctrl+Shift+S, saved as steps without artificial click markers.
+
+- Application names in newly recorded step titles and AI capture context, with display-name fallback when detection is unavailable.
+
+- Workflow step management with drag-and-drop, Move up/down controls, bulk removal with confirmation, and undo.
+
+- Side-by-side AI draft comparison with marked text changes, changed/unchanged/excluded step status, and a changes-only filter.
+
+- Screenshot highlights and solid redaction rectangles, with undo, clear, and save/cancel controls. Saved edits are flattened into AI inputs and exported images while original captures remain local.
+
 - OpenAI and Anthropic (Claude) integration using your own API keys, encrypted locally with the operating system's credential protection.
 - Workspace-specific provider and model defaults, connection testing, and a searchable, scrollable model picker.
 - AI documentation from selected captures, with upload review, cancellation, saved drafts, and review before saving a separate document.

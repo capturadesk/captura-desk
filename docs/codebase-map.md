@@ -71,3 +71,5 @@ Use [development workflow](development.md) for commands and test isolation. `dis
 - [AI unit tests](../tests/ai.test.cjs) and [AI desktop smoke](../scripts/ai-smoke.mjs) use fake credentials and mocked network transport.
 
 See [AI integration](ai.md) before changing upload scope, credentials, provider protocols or draft retention.
+
+Screenshot annotation controls live in `src/components/annotation-editor.tsx`, opened from the zoom viewer. `electron/annotations.cjs` flattens normalized rectangles into native bitmap pixels; `Storage.image` routes preview, AI, and exports through that compositor. The editor alone requests original pixels.

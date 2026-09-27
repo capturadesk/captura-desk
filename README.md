@@ -43,7 +43,7 @@ Open the workspace dropdown at the top left and choose **Workspace settings** to
 3. Open a real recording and click **Generate documentation**. Preview captures, exclude sensitive ones, and confirm the provider disclosure. Select up to 20 captures per draft.
 4. Generate and review the draft. Uncertain steps are marked for review. **Save as new document** preserves the original and creates an editable document containing the selected steps. Saved drafts can be reopened from the source recording after restart.
 
-API requests go directly from the desktop main process to the selected provider. Provider API billing and retention policies apply. Image copies are resized for analysis; originals stay unchanged. No automatic provider fallback or retry is performed. Cancellation stops the local request but cannot undo data already sent or guarantee that the provider stops billing. There is no screenshot redaction tool yet; exclude sensitive captures before generation.
+API requests go directly from the desktop main process to the selected provider. Provider API billing and retention policies apply. Image copies are resized for analysis; originals stay unchanged. No automatic provider fallback or retry is performed. Cancellation stops the local request but cannot undo data already sent or guarantee that the provider stops billing. Use **Annotate screenshot** in the enlarged viewer to redact sensitive regions before generation; review both before and after frames.
 
 ## Implemented
 
@@ -55,7 +55,7 @@ API requests go directly from the desktop main process to the selected provider.
 - Local project instructions, editable documents, undo, and migration of prototype data.
 - OpenAI/Anthropic connections, workspace AI defaults, selected-capture generation, and durable draft review.
 
-Images and the SQLite database live in Electron's per-user application data directory. Removing a document step excludes it from the document/export but retains the original capture. Deleting its project also removes original capture files; locked files are queued for cleanup at the next launch. Redaction and individual-capture deletion controls are still planned.
+Images and the SQLite database live in Electron's per-user application data directory. Removing a document step excludes it from the document/export but retains the original capture. Deleting its project also removes original capture files; locked files are queued for cleanup at the next launch. Individual-capture deletion controls are still planned.
 
 Captura Desk stores its database in `%APPDATA%\captura-desk` and screenshots in `%APPDATA%\captura-desk\captures`. Older data directories and browser keys are not migrated or deleted. Development uses `CAPTURADESK_DEV_URL`; tests use `CAPTURADESK_TEST_DATA` to select isolated profiles. Previous environment-variable names are no longer supported.
 
@@ -97,3 +97,17 @@ To ask AI to revise a document, type a request such as **Make this shorter** in 
 Generated documents have a **Delete document** action in the three-dot menu. It removes only that revision and keeps the original recording, shared screenshots and other revisions. On the original document, **Delete recording** removes the recording and all its derived documents.
 
 Revision labels are separate from document titles: **Original**, **Revision 1 - AI draft**, then **Revision 2 - Make this shorter**. Each saved revision shows its creation date and source revision. Use **the three-dot menu > Rename revision** to change the label. Numbers are scoped to the original recording and are not reused after deletion. Existing revisions receive numbers in their stored order; unknown historical dates and parent revisions remain blank. Exports use the document title.
+
+## Screenshot annotations
+
+Enlarge a screenshot and choose **Annotate screenshot**. Select **Redact** or **Highlight**, then drag a rectangle. Use **Undo box** or **Clear boxes** to revise your edits, then **Save screenshot edits**. Cancel leaves saved edits unchanged. Edits apply to that frame across all revisions sharing the capture. Before and after frames are separate.
+
+Saved annotations are flattened into images used by the viewer, AI generation, and Markdown export. Original PNGs remain locally available in the editor. Redactions do not remove sensitive text already present in documentation or previously generated AI drafts, sent requests, or exported files.
+
+In **Review AI draft**, expand **Compare with current document** to see the title, summary, and steps side by side. Removed passages are struck through and proposed passages are underlined. **Show only changes** hides unchanged fields and steps. Excluded steps are identified explicitly; saving still creates a separate document. Comparison works for new and reopened drafts, using the current editor document; saving a stale draft remains blocked.
+
+Use **Manage steps** beside the workflow list to reorder with drag handles or Move up/down buttons. Select individual steps or **Select all**, then **Remove selected** and confirm. **Undo step change** restores recent changes while the manager is open; the editor also retains its latest-change Undo. Changes save automatically, affect only the current document, and preserve original screenshot files. The resulting order is used by AI generation and exports.
+
+New recordings identify the application under each click, producing step titles such as **Click on Google Chrome**. The capture label also retains the display name. Known applications receive friendly names; others use the executable basename. If Windows cannot identify the process, the display name is used. Window titles, browser tab titles, and executable paths are not stored. Older recordings and manually edited titles remain unchanged.
+
+While recording, choose **Capture now** on the floating toolbar or press **Ctrl+Shift+S** to capture the selected display without a mouse click. Manual steps contain one screenshot and no click marker. The shortcut is registered only while recording; if another app owns it, use the toolbar button. Pause disables manual capture too.

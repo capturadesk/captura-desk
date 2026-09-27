@@ -1,3 +1,10 @@
+export type Annotation = {
+  kind: "highlight" | "redact";
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
 import type { Project } from "./workspace";
 export type AIProvider = "openai" | "anthropic";
 export type AIDefaults = { provider: AIProvider; model: string };
@@ -50,7 +57,9 @@ export type CaptureImage = {
   dataUrl: string | null;
   error: string | null;
   metadata: {
-    point: { x: number; y: number };
+    annotations?: { before?: Annotation[]; after?: Annotation[] };
+    trigger?: "manual";
+    point: { x: number; y: number } | null;
     clickedAt: number;
     before: { capturedAt: number; width: number; height: number } | null;
     after: { capturedAt: number; width: number; height: number } | null;
@@ -108,12 +117,19 @@ export interface Desktop {
     context: string;
     displayId: string;
   }) => Promise<RecordingState>;
+  captureNow: () => Promise<RecordingState>;
   pauseRecording: () => Promise<RecordingState>;
   resumeRecording: () => Promise<RecordingState>;
   stopRecording: () => Promise<RecordingResult>;
   showWorkspace: () => Promise<void>;
   onRecordingState: (callback: (state: RecordingState) => void) => () => void;
   onRecordingFinished: (callback: (result: RecordingResult) => void) => () => void;
+  annotationRead: (id: string, frame: "before" | "after") => Promise<CaptureImage>;
+  annotationSave: (input: {
+    id: string;
+    frame: "before" | "after";
+    boxes: Annotation[];
+  }) => Promise<void>;
   captureImage: (id: string, frame: "before" | "after") => Promise<CaptureImage>;
   exportMarkdown: (input: { projectId: string; guideId: string }) => Promise<boolean>;
 }

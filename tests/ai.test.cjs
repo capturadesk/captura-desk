@@ -616,3 +616,42 @@ test("revision numbers survive deletion and restart; refinement labels and paren
     reopened.close();
   }
 });
+
+test("saved screenshot edits feed AI image preparation; rendering failure blocks upload", async (t) => {
+  let uploads = 0;
+  const f = await fixture(t, {
+    generate: async ({ captures }) => {
+      uploads++;
+      return outputFor(captures);
+    },
+  });
+  const boxes = [{ kind: "redact", x: 0, y: 0, width: 0.5, height: 0.5 }];
+  f.storage.saveAnnotations({ id: f.captures[0], frame: "before", boxes });
+  await assert.rejects(f.ai.generate(f.input), /Cannot render/);
+  assert.equal(uploads, 0);
+  f.storage.renderAnnotations = (png, received) => {
+    assert.deepEqual(received, boxes);
+    assert.equal(png.toString(), "fixture");
+    return Buffer.from("redacted");
+  };
+  f.ai.prepareImage = (url) => {
+    assert.equal(Buffer.from(url.split(",")[1], "base64").toString(), "redacted");
+    return "anBlZw==";
+  };
+  await f.ai.generate(f.input);
+  assert.equal(uploads, 1);
+  const original = await f.storage.image(f.captures[0], "before", true);
+  assert.equal(
+    Buffer.from(original.dataUrl.split(",")[1], "base64").toString(),
+    "fixture",
+  );
+  const reopened = new Storage(f.root);
+  try {
+    assert.deepEqual(
+      JSON.parse(reopened.capture(f.captures[0]).metadata).annotations.before,
+      boxes,
+    );
+  } finally {
+    reopened.close();
+  }
+});
