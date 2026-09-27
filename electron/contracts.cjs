@@ -22,6 +22,10 @@ const guide = z.object({
   demo: z.boolean(),
   sessionId: uuid.optional(),
   recovered: z.boolean().optional(),
+  revision: z.number().int().nonnegative().optional(),
+  revisionLabel: z.string().trim().min(1).max(120).optional(),
+  createdAt: z.number().optional(),
+  basedOnRevision: z.number().int().nonnegative().optional(),
 });
 const project = z.object({
   id,

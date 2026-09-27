@@ -13,10 +13,11 @@
     "test:desktop": "npm run build && node scripts/smoke.mjs",
     "test": "node --test tests/*.test.cjs",
     "typecheck": "tsc --noEmit --noUnusedLocals --noUnusedParameters",
-    "format": "prettier --write src electron tests scripts *.json *.ts index.html README.md docs .github",
-    "format:check": "prettier --check src electron tests scripts *.json *.ts index.html README.md docs .github",
+    "format": "prettier --write src electron tests scripts *.json *.ts index.html README.md CHANGELOG.md docs .github",
+    "format:check": "prettier --check src electron tests scripts *.json *.ts index.html README.md CHANGELOG.md docs .github",
     "check": "npm run typecheck && npm test && npm run format:check",
-    "test:recording": "npm run build && node scripts/recording-smoke.mjs"
+    "test:recording": "npm run build && node scripts/recording-smoke.mjs",
+    "test:ai": "npm run build && node scripts/ai-smoke.mjs"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",

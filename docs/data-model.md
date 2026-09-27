@@ -74,3 +74,17 @@ Workspace rename/deletion uses existing tables and required no further schema ch
 Production data lives in `%APPDATA%\captura-desk`, with screenshots in its `captures` subfolder. Older data directories are not migrated or deleted; the new directory starts fresh on first launch. `CAPTURADESK_TEST_DATA` selects an isolated test directory. Browser preview uses localStorage through `use-workspace.ts` and does not provide native recording or SQLite durability. The prototype import key is `capturadesk-desktop-v1`; older browser keys are not imported.
 
 See [storage tests](../tests/storage.test.cjs) for migration, stale-save rejection, deletion isolation, rollback and restart coverage.
+
+## AI storage (schema version 4)
+
+The v3-to-v4 transaction adds `ai_credentials` (provider and OS-encrypted API key), `ai_workspace` (workspace provider/model default), and `ai_drafts` (source document snapshot, validated output, capture session, provider/model, timestamp and prompt version). No plaintext key is stored in workspace JSON or returned by the preload bridge.
+
+Workspace defaults cascade with workspace deletion. Drafts reference both workspace and recording session with SQL cascading deletes, so workspace/project/recording deletion removes the corresponding drafts. Credentials are device-wide and remain until explicitly removed in AI providers. Removing a key does not delete existing documents or drafts.
+
+AI output is kept separate until the user saves it as a new document. Saving verifies the source snapshot still matches, preserves its original document, and copies the selected step/capture references into a new guide. These documents share source evidence; deleting the recording removes all documents referring to that session. See [AI integration](ai.md).
+
+## Deleting a revision
+
+`document:delete` removes only a derived document (`id !== sessionId`). It rejects original recordings, which use `recording:delete`. The storage transaction removes drafts sourced from the deleted revision and adds a `deleted_recordings` tombstone with a null session ID, preventing delayed workspace saves from restoring it without filtering sibling documents. Session rows and image files remain shared and untouched.
+
+Revision metadata lives on document JSON: `revision` (0 for the original), `revisionLabel`, `createdAt`, and `basedOnRevision`. Durable `settings` keys named `revision_counter:<sessionId>` retain the highest allocated number, including deleted revisions. Allocation occurs when a draft is saved as a document; a failed save may leave a numbering gap. Legacy revisions are labeled on load in stored order without inventing dates or lineage. AI draft output JSON also retains the requested label so a saved draft can be applied after restart. Document exports remain independent of revision metadata.

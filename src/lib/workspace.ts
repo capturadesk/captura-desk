@@ -15,6 +15,10 @@ export type Guide = {
   demo: boolean;
   sessionId?: string;
   recovered?: boolean;
+  revision?: number;
+  revisionLabel?: string;
+  createdAt?: number;
+  basedOnRevision?: number;
 };
 export type Project = {
   id: string;

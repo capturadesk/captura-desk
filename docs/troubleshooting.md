@@ -22,3 +22,14 @@ Start with the floating toolbar's display name, received-event count and exclusi
 - Mixed-DPI layouts, negative display origins, elevated applications, protected content and remote desktops still need further platform qualification; record the relevant environment when reproducing failures.
 
 See [development workflow](development.md) for test commands and [data model](data-model.md) for recovery and retention details.
+
+## AI generation
+
+- Missing key: open **AI providers**, save a key and test it. Connection testing lists models but does not verify that every returned model supports vision or structured output.
+- Unavailable model or rejected request: verify the model ID in workspace settings and select a compatible model. No automatic fallback sends data to another provider.
+- Quota/rate limit: check the provider account and retry later. Requests are not automatically retried.
+- Missing screenshot or oversized selection: exclude the affected capture or select fewer captures. The first version supports 1-20 captures and caps prepared base64 images at 24 MiB per request.
+- Invalid, refused or incomplete output: the existing document is unchanged. Try fewer captures or another compatible model, then review the new draft.
+- Changed source: a saved draft cannot be applied after editing its source document; regenerate from the current version.
+- Canceled request: no draft is saved for the canceled job; requests already delivered may still incur provider charges. Existing drafts remain available.
+- OS encryption unavailable or key cannot be decrypted: save the key again under the current Windows account. There is no plaintext fallback.

@@ -6,6 +6,18 @@ const subscribe = (channel, callback) => {
 };
 contextBridge.exposeInMainWorld("desktop", {
   platform: process.platform,
+  aiConnections: () => ipcRenderer.invoke("ai:connections"),
+  aiSaveKey: (provider, key) => ipcRenderer.invoke("ai:key", { provider, key }),
+  aiRemoveKey: (provider) => ipcRenderer.invoke("ai:remove-key", provider),
+  aiModels: (provider) => ipcRenderer.invoke("ai:models", provider),
+  aiDefaults: (workspaceId) => ipcRenderer.invoke("ai:defaults", workspaceId),
+  aiSaveDefaults: (input) => ipcRenderer.invoke("ai:save-defaults", input),
+  aiDrafts: (input) => ipcRenderer.invoke("ai:drafts", input),
+  aiRefine: (input) => ipcRenderer.invoke("ai:refine", input),
+  aiGenerate: (input) => ipcRenderer.invoke("ai:generate", input),
+  aiApply: (input) => ipcRenderer.invoke("ai:apply", input),
+  aiState: () => ipcRenderer.invoke("ai:state"),
+  aiCancel: () => ipcRenderer.invoke("ai:cancel"),
   loadWorkspace: () => ipcRenderer.invoke("workspace:load"),
   initializeWorkspace: (projects) => ipcRenderer.invoke("workspace:initialize", projects),
   saveWorkspace: (workspaceId, projects) =>
@@ -18,6 +30,8 @@ contextBridge.exposeInMainWorld("desktop", {
   deleteProject: (workspaceId, projectId) =>
     ipcRenderer.invoke("project:delete", { workspaceId, projectId }),
   listDisplays: () => ipcRenderer.invoke("recording:displays"),
+  deleteDocument: (workspaceId, projectId, guideId) =>
+    ipcRenderer.invoke("document:delete", { workspaceId, projectId, guideId }),
   deleteRecording: (workspaceId, projectId, guideId) =>
     ipcRenderer.invoke("recording:delete", { workspaceId, projectId, guideId }),
   identifyDisplays: () => ipcRenderer.invoke("recording:identify"),

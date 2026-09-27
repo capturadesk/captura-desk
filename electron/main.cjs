@@ -6,6 +6,8 @@ const { WindowsCapture } = require("./recording/windows.cjs");
 const { Recorder } = require("./recording/recorder.cjs");
 const { registerIPC } = require("./ipc.cjs");
 const { DisplayIndicators } = require("./recording/display-indicators.cjs");
+const { safeStorage, nativeImage } = require("electron");
+const { AIService } = require("./ai/service.cjs");
 // Use the product's data directory; tests override it with an isolated profile.
 app.setName("Captura Desk");
 app.setPath(
@@ -16,7 +18,7 @@ const devUrl = process.env.CAPTURADESK_DEV_URL;
 if (devUrl && devUrl !== "http://127.0.0.1:5173")
   throw new Error("Invalid development URL");
 const indexPath = path.join(__dirname, "../dist/index.html");
-let mainWindow, toolbar, recorder, storage;
+let mainWindow, toolbar, recorder, storage, ai;
 let quitting = false;
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -32,6 +34,14 @@ if (!app.requestSingleInstanceLock()) {
       storage = new Storage(app.getPath("userData"));
       storage.cleanupDeletedFiles().catch(() => {});
       recorder = new Recorder(storage, new WindowsCapture());
+      ai = new AIService(storage, safeStorage, (url) => {
+        let image = nativeImage.createFromDataURL(url);
+        if (image.isEmpty()) throw new Error("Could not read a selected screenshot.");
+        const { width, height } = image.getSize();
+        if (Math.max(width, height) > 1568)
+          image = image.resize(width >= height ? { width: 1568 } : { height: 1568 });
+        return image.toJPEG(80).toString("base64");
+      });
       const baseUrl = devUrl ? `${devUrl}/` : pathToFileURL(indexPath).href;
       function trusted(event, allowToolbar = false) {
         const frame = event.senderFrame;
@@ -50,6 +60,7 @@ if (!app.requestSingleInstanceLock()) {
         trusted,
         storage,
         recorder,
+        ai,
         mainWindow: () => mainWindow,
         indicators: new DisplayIndicators(),
       });
@@ -58,6 +69,7 @@ if (!app.requestSingleInstanceLock()) {
         win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
         win.webContents.on("will-navigate", (event) => event.preventDefault());
         win.webContents.on("render-process-gone", () => {
+          if (win === mainWindow) ai.cancel();
           if (recorder.state.status === "recording")
             recorder.pause(
               "The application interface closed unexpectedly. Your saved captures are safe.",
@@ -179,6 +191,7 @@ if (!app.requestSingleInstanceLock()) {
       app.quit();
     });
   app.on("before-quit", () => {
+    ai?.cancel();
     quitting = true;
     recorder?.shutdown();
   });

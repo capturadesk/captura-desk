@@ -54,6 +54,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { AIProviderSettings } from "@/components/ai-provider-settings";
+import { AIGenerateDialog } from "@/components/ai-generate-dialog";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 import { CaptureView } from "@/components/capture-view";
 import { useWorkspace } from "@/hooks/use-workspace";
@@ -80,6 +82,7 @@ export default function App() {
     deleteWorkspace,
     deleteProject: removeProject,
     deleteRecording: removeRecording,
+    deleteDocument: removeDocument,
   } = useWorkspace();
   const {
     state: recorder,
@@ -93,6 +96,11 @@ export default function App() {
   const [displayId, setDisplayId] = useState("");
   const [startError, setStartError] = useState("");
   const [starting, setStarting] = useState(false);
+  const [aiSettings, setAISettings] = useState(false);
+  const [aiGenerate, setAIGenerate] = useState(false);
+  const [aiEdit, setAIEdit] = useState("");
+  const [renameRevision, setRenameRevision] = useState(false);
+  const [revisionName, setRevisionName] = useState("");
   const [projectId, setProjectId] = useState(() => projects[0]?.id ?? "");
   const [guideId, setGuideId] = useState<string | null>(
     () => projects[0]?.documents[0]?.id ?? null,
@@ -250,23 +258,34 @@ export default function App() {
       </DropdownMenu>
     );
   }
+  const deletingRevision =
+    !!recordingDeleteTarget?.guide.sessionId &&
+    recordingDeleteTarget.guide.id !== recordingDeleteTarget.guide.sessionId;
   async function confirmRecordingDeletion() {
     if (!recordingDeleteTarget || deleting) return;
     setDeleting(true);
     setDeleteError("");
     try {
-      const pending = await removeRecording(
-        recordingDeleteTarget.projectId,
-        recordingDeleteTarget.guide.id,
-      );
+      const pending = deletingRevision
+        ? (await removeDocument(
+            recordingDeleteTarget.projectId,
+            recordingDeleteTarget.guide.id,
+          ),
+          false)
+        : await removeRecording(
+            recordingDeleteTarget.projectId,
+            recordingDeleteTarget.guide.id,
+          );
       setRecordingDeleteTarget(null);
       setGuideId(null);
       setStepIndex(0);
       setUndo(null);
       setMessage(
-        pending
-          ? "Recording deleted. Locked capture files will be retried on next launch."
-          : "Recording and its captures deleted.",
+        deletingRevision
+          ? "Document deleted. Original recording and screenshots kept."
+          : pending
+            ? "Recording deleted. Locked capture files will be retried on next launch."
+            : "Recording and its captures deleted.",
       );
     } catch (e) {
       setDeleteError(errorMessage(e));
@@ -363,7 +382,7 @@ export default function App() {
   function refine() {
     if (!guide || !refinement.trim()) return;
     if (!guide.demo) {
-      setMessage("AI is not connected yet. You can edit each captured step directly.");
+      setAIEdit(refinement.trim());
       return;
     }
     const q = refinement.toLowerCase();
@@ -522,6 +541,14 @@ export default function App() {
             <div className="space-y-1 pt-5">
               <button
                 className="sidebar-link disabled:opacity-40"
+                disabled={recording || workspaceBusy}
+                onClick={() => setAISettings(true)}
+              >
+                <Sparkles />
+                AI providers
+              </button>
+              <button
+                className="sidebar-link disabled:opacity-40"
                 disabled={!project.id}
                 onClick={() => openModal("instructions")}
               >
@@ -556,6 +583,18 @@ export default function App() {
                 </>
               )}
               <span className="flex-1" />
+              {guide && !guide.demo && view === "editor" && window.desktop && (
+                <Button
+                  size="sm"
+                  disabled={
+                    recording || workspaceBusy || !guide.steps.some((s) => s.captureId)
+                  }
+                  onClick={() => setAIGenerate(true)}
+                >
+                  <Sparkles className="size-3.5" />
+                  Generate documentation
+                </Button>
+              )}
               {guide && view === "editor" && (
                 <Button
                   variant="outline"
@@ -716,7 +755,11 @@ export default function App() {
                             <DropdownMenuTrigger asChild>
                               <button className="flex max-w-[65%] items-center gap-1.5 text-neutral-500">
                                 <FileText className="size-3.5 shrink-0" />
-                                <span className="truncate">{guide.title}</span>
+                                <span className="truncate">
+                                  {guide.revision
+                                    ? `Revision ${guide.revision} · ${guide.revisionLabel}`
+                                    : guide.title}
+                                </span>
                                 <ChevronDown className="size-3 shrink-0" />
                               </button>
                             </DropdownMenuTrigger>
@@ -730,7 +773,21 @@ export default function App() {
                                     setUndo(null);
                                   }}
                                 >
-                                  {d.title}
+                                  <span className="flex min-w-0 flex-col">
+                                    <span>
+                                      {d.revision
+                                        ? `Revision ${d.revision} · ${d.revisionLabel}`
+                                        : d.title}
+                                    </span>
+                                    {d.sessionId && (
+                                      <span className="text-[10px] text-neutral-500">
+                                        {d.revision ? d.title : "Original"}
+                                        {d.createdAt
+                                          ? " · " + new Date(d.createdAt).toLocaleString()
+                                          : ""}
+                                      </span>
+                                    )}
+                                  </span>
                                   {d.id === guide.id && (
                                     <Check className="ml-auto size-3" />
                                   )}
@@ -752,6 +809,16 @@ export default function App() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              {!!guide.revision && (
+                                <DropdownMenuItem
+                                  onSelect={() => {
+                                    setRevisionName(guide.revisionLabel || "AI draft");
+                                    setRenameRevision(true);
+                                  }}
+                                >
+                                  Rename revision
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem
                                 className="text-red-600"
                                 onClick={() => {
@@ -762,7 +829,10 @@ export default function App() {
                                   });
                                 }}
                               >
-                                <Trash2 className="size-4" /> Delete recording
+                                <Trash2 className="size-4" />{" "}
+                                {guide.sessionId && guide.id !== guide.sessionId
+                                  ? "Delete document"
+                                  : "Delete recording"}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -775,6 +845,19 @@ export default function App() {
                             <span className="text-amber-700">Saving changes…</span>
                           )}
                         </div>
+                        {guide.sessionId && (
+                          <p className="mb-4 text-xs text-neutral-500">
+                            {guide.revision ? `Revision ${guide.revision}` : "Original"}
+                            {guide.createdAt
+                              ? " · " + new Date(guide.createdAt).toLocaleString()
+                              : ""}
+                            {guide.basedOnRevision !== undefined
+                              ? guide.basedOnRevision === 0
+                                ? " · Based on Original"
+                                : ` · Based on Revision ${guide.basedOnRevision}`
+                              : ""}
+                          </p>
+                        )}
                         {tab === "document" ? (
                           <>
                             <article className="document-sheet rounded-lg border bg-white px-11 py-9 shadow-[0_2px_8px_#00000002]">
@@ -922,9 +1005,10 @@ export default function App() {
                                 placeholder={
                                   guide.demo
                                     ? "How would you like to refine this?"
-                                    : "AI generation will be available in the next milestone"
+                                    : "Ask AI to edit, e.g. make this shorter"
                                 }
-                                disabled={!guide.demo}
+                                disabled={!guide.demo && !window.desktop}
+                                maxLength={4000}
                                 value={refinement}
                                 onChange={(e) => setRefinement(e.target.value)}
                                 className="h-7 border-0 px-1 text-xs shadow-none focus-visible:ring-0"
@@ -933,7 +1017,9 @@ export default function App() {
                                 size="icon"
                                 className="size-7 shrink-0"
                                 aria-label="Apply refinement"
-                                disabled={!guide.demo || !refinement.trim()}
+                                disabled={
+                                  (!guide.demo && !window.desktop) || !refinement.trim()
+                                }
                               >
                                 <ArrowUp className="size-3.5" />
                               </Button>
@@ -942,7 +1028,7 @@ export default function App() {
                               <span>
                                 {guide.demo
                                   ? "AI preview · Try “Make it shorter” or “Turn into a checklist”"
-                                  : "AI not connected · Edit steps directly"}
+                                  : "Ask for edits, then review and save a new version"}
                               </span>
                               {undo && (
                                 <button
@@ -1177,7 +1263,8 @@ export default function App() {
                   </p>
                   <p>
                     Recording saves real screenshots and mouse clicks on your selected
-                    display. No captures are uploaded. AI is not connected yet.
+                    display. Captures stay local until you explicitly send selected
+                    captures for AI generation.
                   </p>
                   <p>
                     Use <kbd className="rounded border px-1">Ctrl K</kbd> to find a
@@ -1392,11 +1479,13 @@ export default function App() {
         >
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Delete recording?</DialogTitle>
+              <DialogTitle>
+                {deletingRevision ? "Delete document?" : "Delete recording?"}
+              </DialogTitle>
               <DialogDescription>
-                “{recordingDeleteTarget?.guide.title}”, its documentation, and original
-                screenshots will be permanently deleted. Your project and exported files
-                will remain. This cannot be undone.
+                {deletingRevision
+                  ? "Only this document will be permanently deleted. The original recording, screenshots, and other documents will remain."
+                  : "This recording, all documents derived from it, and its original screenshots will be permanently deleted. Your project and exported files will remain. This cannot be undone."}
               </DialogDescription>
             </DialogHeader>
             {deleteError && (
@@ -1417,11 +1506,72 @@ export default function App() {
                 disabled={deleting}
                 onClick={confirmRecordingDeletion}
               >
-                {deleting ? "Deleting…" : "Delete recording"}
+                {deleting
+                  ? "Deleting…"
+                  : deletingRevision
+                    ? "Delete document"
+                    : "Delete recording"}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        <Dialog open={renameRevision} onOpenChange={setRenameRevision}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Rename revision</DialogTitle>
+              <DialogDescription>
+                Change the label shown beside the revision number.
+              </DialogDescription>
+            </DialogHeader>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!revisionName.trim()) return;
+                updateGuide({ revisionLabel: revisionName.trim() });
+                setRenameRevision(false);
+              }}
+            >
+              <Input
+                aria-label="Revision label"
+                value={revisionName}
+                maxLength={120}
+                onChange={(e) => setRevisionName(e.target.value)}
+              />
+              <DialogFooter className="mt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setRenameRevision(false)}
+                >
+                  Cancel
+                </Button>
+                <Button disabled={!revisionName.trim()}>Save label</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+        {aiSettings && <AIProviderSettings onClose={() => setAISettings(false)} />}
+        {(aiGenerate || aiEdit) && guide && window.desktop && (
+          <AIGenerateDialog
+            workspaceId={workspaceId}
+            projectId={project.id}
+            guide={guide}
+            flush={flush}
+            instruction={aiEdit || undefined}
+            onClose={() => {
+              setAIGenerate(false);
+              setAIEdit("");
+            }}
+            onApplied={(updated, id) => {
+              setRefinement("");
+              setProjects(updated);
+              setGuideId(id);
+              setStepIndex(0);
+              setUndo(null);
+              setMessage("AI document saved. Your original document is unchanged.");
+            }}
+          />
+        )}
         <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
           <DialogContent className="sm:max-w-[400px]">
             <DialogHeader>

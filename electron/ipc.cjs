@@ -3,7 +3,16 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const { randomUUID } = require("node:crypto");
 const c = require("./contracts.cjs");
-function registerIPC({ ipcMain, trusted, storage, recorder, mainWindow, indicators }) {
+const a = require("./ai/contracts.cjs");
+function registerIPC({
+  ipcMain,
+  trusted,
+  storage,
+  recorder,
+  ai,
+  mainWindow,
+  indicators,
+}) {
   const handle = (channel, schema, fn, toolbar = false) =>
     ipcMain.handle(channel, async (event, payload) => {
       trusted(event, toolbar);
@@ -21,11 +30,43 @@ function registerIPC({ ipcMain, trusted, storage, recorder, mainWindow, indicato
     return true;
   });
   const requireIdle = () => {
+    if (ai.busy)
+      throw new Error("Finish or cancel AI generation before making this change.");
     if (recorder.state.status !== "idle")
       throw new Error(
         "Finish the current recording before changing workspaces or deleting a project.",
       );
   };
+  handle("ai:connections", null, () => ai.connections());
+  handle("ai:key", a.key, ({ provider, key }) => {
+    requireIdle();
+    return ai.saveKey(provider, key);
+  });
+  handle("ai:remove-key", a.provider, (provider) => {
+    requireIdle();
+    return ai.removeKey(provider);
+  });
+  handle("ai:models", a.provider, (provider) => ai.models(provider));
+  handle("ai:defaults", c.id, (workspaceId) => ai.defaults(workspaceId));
+  handle("ai:save-defaults", a.defaults, (input) => {
+    requireIdle();
+    return ai.saveDefaults(input);
+  });
+  handle("ai:drafts", a.target, (input) => ai.list(input));
+  handle("ai:generate", a.generate, (input) => {
+    requireIdle();
+    return ai.generate(input);
+  });
+  handle("ai:refine", a.refine, (input) => {
+    requireIdle();
+    return ai.refine(input);
+  });
+  handle("ai:apply", a.draft, (input) => {
+    requireIdle();
+    return ai.apply(input);
+  });
+  handle("ai:state", null, () => ai.state());
+  handle("ai:cancel", null, () => ai.cancel());
   handle("workspaces:list", null, () => storage.catalog());
   handle("workspaces:create", c.workspaceName, (name) => {
     requireIdle();
@@ -47,6 +88,10 @@ function registerIPC({ ipcMain, trusted, storage, recorder, mainWindow, indicato
     requireIdle();
     return storage.deleteProject(data.workspaceId, data.projectId);
   });
+  handle("document:delete", c.deleteRecording, (data) => {
+    requireIdle();
+    return storage.deleteDocument(data.workspaceId, data.projectId, data.guideId);
+  });
   handle("recording:delete", c.deleteRecording, (data) => {
     requireIdle();
     return storage.deleteRecording(data.workspaceId, data.projectId, data.guideId);
@@ -64,6 +109,7 @@ function registerIPC({ ipcMain, trusted, storage, recorder, mainWindow, indicato
   });
   handle("recording:state", null, () => recorder.snapshot(), true);
   handle("recording:start", c.startRecording, (data) => {
+    requireIdle();
     indicators.hide();
     return recorder.start(data);
   });

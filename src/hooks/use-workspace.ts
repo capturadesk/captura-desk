@@ -224,6 +224,18 @@ export function useWorkspace() {
     });
     return cleanupPending;
   }
+  async function deleteDocument(projectId: string, guideId: string) {
+    await mutate(async () => {
+      const snapshot = current.current;
+      if (!window.desktop) throw new Error("Document deletion requires the desktop app.");
+      const result = await window.desktop.deleteDocument(
+        snapshot.catalog.activeId,
+        projectId,
+        guideId,
+      );
+      return { ...snapshot, projects: result.projects };
+    });
+  }
   async function deleteRecording(projectId: string, guideId: string) {
     let cleanupPending = false;
     await mutate(async () => {
@@ -263,5 +275,6 @@ export function useWorkspace() {
     deleteWorkspace,
     deleteProject,
     deleteRecording,
+    deleteDocument,
   };
 }

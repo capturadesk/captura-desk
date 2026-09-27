@@ -40,7 +40,15 @@ For a new recording bug, add a deterministic regression test to `tests/recorder.
 
 ## Keeping documentation useful
 
+Record notable user-facing changes in [CHANGELOG.md](../CHANGELOG.md) under **Unreleased**. Assign a version and date only when publishing that release.
+
 - Update documentation in the same change as behavior. Capture timing and platform boundaries belong in `architecture.md`; persistence, migration and deletion rules belong in `data-model.md`; module responsibilities belong in `codebase-map.md`; user instructions belong in the README.
 - Comment assumptions, ownership and failure behavior near the code that enforces them. Avoid narrating obvious statements or duplicating TypeScript signatures. Use JSDoc when a caller needs a non-obvious contract, especially side effects or error behavior.
 - Link to the source and relevant regression tests instead of copying complete schemas or method listings into prose. Keep examples free of real recordings, private screenshots and credentials.
 - Distinguish implemented behavior from planned work. Check relative links and run `npm run format:check` for documentation-only changes. Comments alone do not require native capture tests; use the behavior checks above when executable code changes.
+
+## AI changes
+
+Run `npm run test:ai` for provider settings and draft UI changes, in addition to unit tests and the build. It injects mocked transport only into its isolated Electron process; it makes no external API calls. Unit tests inject provider and encryption dependencies. Never use real user captures or API keys in fixtures.
+
+For provider protocol changes, verify the official docs linked in [AI integration](ai.md). Live API testing requires a deliberately configured account and reviewed test captures; mocked tests do not establish live model quality or account compatibility. Record that distinction in validation results. Documentation-only edits do not require billed requests.

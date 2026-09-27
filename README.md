@@ -2,6 +2,8 @@
 
 A local Windows workflow recorder with an Electron desktop shell, React, TypeScript, and shadcn/ui.
 
+See the [changelog](CHANGELOG.md) for recent features and fixes.
+
 ## Run
 
 Requires Windows and Node.js 22.18+.
@@ -23,16 +25,25 @@ The **⋯** menu on a project card or project header includes **Delete project**
 2. Choose **New recording**, enter the task name, and select a display. The monitor containing Captura Desk is selected initially. Use **Identify displays** to show the display names on your monitors, then select the one containing the application you want to record. The floating recording bar appears on that monitor.
 3. Click **Start recording**. Captura Desk minimizes and shows a floating recording bar.
 4. Perform the task. Clicks on the selected display are saved with screenshots. Use **Pause** before displaying anything you do not want captured.
-5. Click **Finish**. Review the captured steps and their **Before click** / **After click** screenshots, then edit the instructions.
+5. Click **Finish**. Review the captured steps and their **Before click** / **After click** screenshots, then edit the instructions. Click a screenshot to enlarge it; use **Zoom in/out**, **Actual size**, or **Fit to window**. Scroll to explore enlarged images and press **Escape** to close the viewer.
 6. **Export** writes a Markdown file and a sibling folder containing its screenshots. Share both together.
 
-Everything stays local. No capture runs before you start or while paused. AI generation is not connected yet; real recordings use neutral step descriptions for you to edit. The original sample payment guide remains clearly labeled as sample content.
+Recording and editing stay local. No capture runs before you start or while paused. AI generation is optional and sends only explicitly selected captures, project instructions, and the recording title/description to your chosen provider. The original sample payment guide remains clearly labeled as sample content.
 
 The floating bar shows the recorded display, accepted clicks, and received click events. If clicks are excluded, it explains why. Captura Desk may remain open behind the application being recorded; overlapping its window does not prevent screenshots.
 
 To delete a recording, select it in the document dropdown, open **Recording options** (the three-dot button beside the document selector), and choose **Delete recording**. Confirming permanently removes its documentation and original captures; the project and exported files remain. Finish any active recording before deleting.
 
 Open the workspace dropdown at the top left and choose **Workspace settings** to rename or delete the current workspace. Deletion requires confirmation and removes all its projects, recordings, documentation, and original captures; exports remain. Captura Desk switches to another workspace afterward. Create a replacement before deleting your last workspace. Finish any recording before changing workspace settings.
+
+## AI documentation
+
+1. Open **AI providers** in the sidebar. Choose OpenAI or Anthropic (Claude), enter your own API key, save it, and use **Test connection**. Keys are encrypted with Electron safeStorage on this device; they are shared across workspaces and can be removed here.
+2. Open **Workspace settings**, choose the default provider, and enter a model ID. **Load models** opens a searchable, scrollable list of models returned by your account. Choose one supporting image inputs and structured output, or enter its ID directly. Use **Browse models** to reopen the list. Save AI defaults.
+3. Open a real recording and click **Generate documentation**. Preview captures, exclude sensitive ones, and confirm the provider disclosure. Select up to 20 captures per draft.
+4. Generate and review the draft. Uncertain steps are marked for review. **Save as new document** preserves the original and creates an editable document containing the selected steps. Saved drafts can be reopened from the source recording after restart.
+
+API requests go directly from the desktop main process to the selected provider. Provider API billing and retention policies apply. Image copies are resized for analysis; originals stay unchanged. No automatic provider fallback or retry is performed. Cancellation stops the local request but cannot undo data already sent or guarantee that the provider stops billing. There is no screenshot redaction tool yet; exclude sensitive captures before generation.
 
 ## Implemented
 
@@ -42,12 +53,13 @@ Open the workspace dropdown at the top left and choose **Workspace settings** to
 - SQLite workspace/session storage, progressive capture writes, and interrupted-session recovery.
 - Typed preload methods, validated IPC, isolated renderer, and sandboxing.
 - Local project instructions, editable documents, undo, and migration of prototype data.
+- OpenAI/Anthropic connections, workspace AI defaults, selected-capture generation, and durable draft review.
 
 Images and the SQLite database live in Electron's per-user application data directory. Removing a document step excludes it from the document/export but retains the original capture. Deleting its project also removes original capture files; locked files are queued for cleanup at the next launch. Redaction and individual-capture deletion controls are still planned.
 
 Captura Desk stores its database in `%APPDATA%\captura-desk` and screenshots in `%APPDATA%\captura-desk\captures`. Older data directories and browser keys are not migrated or deleted. Development uses `CAPTURADESK_DEV_URL`; tests use `CAPTURADESK_TEST_DATA` to select isolated profiles. Previous environment-variable names are no longer supported.
 
-This is a working local recording milestone, not a release-ready product. Individual-window capture, AI, OCR, PDF export, an installer, signing, and automatic updates are not implemented. Mixed-DPI configurations, elevated applications, protected content, and long-running sessions need further platform qualification. The before-frame is sampled, not guaranteed to be the exact frame immediately before the click.
+This is a working local recording milestone, not a release-ready product. Individual-window capture, OCR, PDF export, an installer, signing, and automatic updates are not implemented. Mixed-DPI configurations, elevated applications, protected content, and long-running sessions need further platform qualification. The before-frame is sampled, not guaranteed to be the exact frame immediately before the click.
 
 ## Development checks
 
@@ -55,6 +67,12 @@ This is a working local recording milestone, not a release-ready product. Indivi
 npm run check
 npm run build
 npm run test:desktop
+```
+
+For an isolated AI UI test using mocked provider transport (no external calls):
+
+```sh
+npm run test:ai
 ```
 
 For explicit real Windows capture verification:
@@ -71,4 +89,11 @@ See [architecture](docs/architecture.md) and [development workflow](docs/develop
 
 - [Codebase map](docs/codebase-map.md): where to make changes, the recording flow, and extending the desktop API.
 - [Data model](docs/data-model.md): editable documents versus source captures, schema history, recovery, and deletion rules.
+- [AI integration](docs/ai.md): credentials, provider adapters, draft lifecycle, limits and tests.
 - [Troubleshooting](docs/troubleshooting.md): recording diagnostics and safe investigation.
+
+To ask AI to revise a document, type a request such as **Make this shorter** in the refinement box below it. Click the arrow, review what will be sent, then choose **Suggest edits**. Review the draft and **Save as new document** to preserve the original. Refinement sends text only and supports 1-20 steps.
+
+Generated documents have a **Delete document** action in the three-dot menu. It removes only that revision and keeps the original recording, shared screenshots and other revisions. On the original document, **Delete recording** removes the recording and all its derived documents.
+
+Revision labels are separate from document titles: **Original**, **Revision 1 - AI draft**, then **Revision 2 - Make this shorter**. Each saved revision shows its creation date and source revision. Use **the three-dot menu > Rename revision** to change the label. Numbers are scoped to the original recording and are not reused after deletion. Existing revisions receive numbers in their stored order; unknown historical dates and parent revisions remain blank. Exports use the document title.

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ScreenshotZoom } from "./screenshot-zoom";
 import { SampleScreen } from "./sample-screen";
 import { errorMessage, type CaptureImage } from "@/lib/desktop";
 import { sampleSteps, type Step } from "@/lib/workspace";
@@ -45,6 +46,22 @@ export function CaptureView({
         compact={compact}
       />
     );
+  const label = `${frame === "before" ? "Before" : "After"} click: ${step.title}`;
+  const screenshot = image?.dataUrl && (
+    <>
+      <img src={image.dataUrl} alt={label} className="block h-auto w-full" />
+      {frame === "before" && (
+        <span
+          aria-label="Click location"
+          style={{
+            left: `${image.metadata.point.x * 100}%`,
+            top: `${image.metadata.point.y * 100}%`,
+          }}
+          className="pointer-events-none absolute size-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-indigo-500/60 shadow-[0_0_0_2px_#6366f1]"
+        />
+      )}
+    </>
+  );
   return (
     <div>
       {!compact && (
@@ -73,23 +90,18 @@ export function CaptureView({
         </div>
       )}
       {image?.dataUrl ? (
-        <div className="relative overflow-hidden rounded-md border">
-          <img
+        compact ? (
+          <div className="relative overflow-hidden rounded-md border">{screenshot}</div>
+        ) : (
+          <ScreenshotZoom
+            key={step.captureId + frame}
             src={image.dataUrl}
-            alt={`${frame === "before" ? "Before" : "After"} click: ${step.title}`}
-            className="block h-auto w-full"
-          />
-          {frame === "before" && (
-            <span
-              aria-label="Click location"
-              style={{
-                left: `${image.metadata.point.x * 100}%`,
-                top: `${image.metadata.point.y * 100}%`,
-              }}
-              className="pointer-events-none absolute size-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-indigo-500/60 shadow-[0_0_0_2px_#6366f1]"
-            />
-          )}
-        </div>
+            label={label}
+            point={frame === "before" ? image.metadata.point : undefined}
+          >
+            {screenshot}
+          </ScreenshotZoom>
+        )
       ) : (
         <div className="flex min-h-32 items-center justify-center rounded-md border bg-neutral-50 p-4 text-center text-[11px] text-neutral-500">
           {error ||

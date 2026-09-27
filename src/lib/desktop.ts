@@ -1,4 +1,25 @@
 import type { Project } from "./workspace";
+export type AIProvider = "openai" | "anthropic";
+export type AIDefaults = { provider: AIProvider; model: string };
+export type AITarget = { workspaceId: string; projectId: string; guideId: string };
+export type AIConnections = {
+  encryptionAvailable: boolean;
+  providers: { provider: AIProvider; connected: boolean }[];
+};
+export type AIDraft = AIDefaults & {
+  id: string;
+  createdAt: number;
+  output: {
+    title: string;
+    description: string;
+    steps: {
+      captureId: string;
+      title: string;
+      description: string;
+      needsReview: boolean;
+    }[];
+  };
+};
 export type DisplaySource = {
   id: string;
   name: string;
@@ -36,6 +57,23 @@ export type CaptureImage = {
   };
 };
 export interface Desktop {
+  aiConnections: () => Promise<AIConnections>;
+  aiSaveKey: (provider: AIProvider, key: string) => Promise<AIConnections>;
+  aiRemoveKey: (provider: AIProvider) => Promise<AIConnections>;
+  aiModels: (provider: AIProvider) => Promise<string[]>;
+  aiDefaults: (workspaceId: string) => Promise<AIDefaults>;
+  aiSaveDefaults: (input: AIDefaults & { workspaceId: string }) => Promise<AIDefaults>;
+  aiDrafts: (input: AITarget) => Promise<AIDraft[]>;
+  aiRefine: (input: AITarget & AIDefaults & { instruction: string }) => Promise<AIDraft>;
+  aiGenerate: (
+    input: AITarget & AIDefaults & { captureIds: string[] },
+  ) => Promise<AIDraft>;
+  aiApply: (input: {
+    workspaceId: string;
+    draftId: string;
+  }) => Promise<{ projects: Project[]; guideId: string }>;
+  aiState: () => Promise<{ busy: boolean; phase: string }>;
+  aiCancel: () => Promise<void>;
   platform: string;
   loadWorkspace: () => Promise<Project[] | null>;
   initializeWorkspace: (projects: Project[]) => Promise<Project[]>;
@@ -52,6 +90,11 @@ export interface Desktop {
     projectId: string,
   ) => Promise<{ projects: Project[]; cleanupPending: boolean }>;
   listDisplays: () => Promise<DisplaySource[]>;
+  deleteDocument: (
+    workspaceId: string,
+    projectId: string,
+    guideId: string,
+  ) => Promise<{ projects: Project[] }>;
   deleteRecording: (
     workspaceId: string,
     projectId: string,

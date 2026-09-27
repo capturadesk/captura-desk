@@ -15,7 +15,7 @@ class Storage {
       "PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;",
     );
     const version = this.db.prepare("PRAGMA user_version").get().user_version;
-    if (version > 3)
+    if (version > 4)
       throw new Error("This workspace requires a newer version of Captura Desk.");
     if (version === 0)
       this.db.exec(`BEGIN IMMEDIATE;
@@ -39,6 +39,12 @@ class Storage {
       this.db.exec(`BEGIN IMMEDIATE;
       CREATE TABLE deleted_recordings(workspace_id TEXT NOT NULL,project_id TEXT NOT NULL,guide_id TEXT NOT NULL,session_id TEXT,PRIMARY KEY(workspace_id,project_id,guide_id));
       PRAGMA user_version=3; COMMIT;`);
+    if (version < 4)
+      this.db.exec(`BEGIN IMMEDIATE;
+      CREATE TABLE ai_credentials(provider TEXT PRIMARY KEY,encrypted TEXT NOT NULL);
+      CREATE TABLE ai_workspace(workspace_id TEXT PRIMARY KEY REFERENCES workspaces(id) ON DELETE CASCADE,provider TEXT NOT NULL,model TEXT NOT NULL);
+      CREATE TABLE ai_drafts(id TEXT PRIMARY KEY,workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,project_id TEXT NOT NULL,guide_id TEXT NOT NULL,session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,provider TEXT NOT NULL,model TEXT NOT NULL,created_at INTEGER NOT NULL,source TEXT NOT NULL,output TEXT NOT NULL,prompt_version TEXT NOT NULL);
+      PRAGMA user_version=4; COMMIT;`);
     this.db
       .prepare(
         "UPDATE sessions SET status='interrupted',error='Recording was interrupted. Saved captures have been recovered.' WHERE status IN ('recording','paused','starting','stopping')",
@@ -204,10 +210,50 @@ class Storage {
     }
     return projects;
   }
+  nextRevision(sessionId) {
+    const key = "revision_counter:" + sessionId;
+    const number =
+      Number(
+        this.db.prepare("SELECT value FROM settings WHERE key=?").get(key)?.value || 0,
+      ) + 1;
+    this.db
+      .prepare(
+        "INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+      )
+      .run(key, String(number));
+    return number;
+  }
+  labelRevisions(projects) {
+    for (const project of projects) {
+      for (const guide of project.documents) {
+        if (!guide.sessionId || !guide.revision) continue;
+        const key = "revision_counter:" + guide.sessionId;
+        this.db
+          .prepare(
+            "INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=CAST(MAX(CAST(value AS INTEGER),CAST(excluded.value AS INTEGER)) AS TEXT)",
+          )
+          .run(key, String(guide.revision));
+      }
+      for (const guide of project.documents) {
+        if (!guide.sessionId) continue;
+        if (guide.id === guide.sessionId) {
+          guide.revision = 0;
+          guide.createdAt ??= this.db
+            .prepare("SELECT started_at FROM sessions WHERE id=?")
+            .get(guide.sessionId)?.started_at;
+        } else if (guide.revision === undefined) {
+          guide.revision = this.nextRevision(guide.sessionId);
+          guide.revisionLabel = "AI draft";
+          // Historical creation time and parent are unknown; do not invent them.
+        }
+      }
+    }
+    return projects;
+  }
   loadWorkspace(workspaceId = this.activeWorkspaceId()) {
     const data = this.rawWorkspace(workspaceId);
     if (!data) return null;
-    const merged = this.mergeSessions(data, workspaceId);
+    const merged = this.labelRevisions(this.mergeSessions(data, workspaceId));
     this.writeWorkspace(merged, workspaceId);
     return merged;
   }
@@ -225,6 +271,20 @@ class Storage {
         .map((r) => r.project_id),
     );
     const projects = contracts.workspace.parse(input).filter((p) => !deleted.has(p.id));
+    // Keep immutable provenance when an older renderer submits a delayed save.
+    const current = this.rawWorkspace(workspaceId) || [];
+    for (const p of projects)
+      for (const d of p.documents) {
+        const saved = current
+          .find((old) => old.id === p.id)
+          ?.documents.find((old) => old.id === d.id);
+        if (saved)
+          for (const key of ["revision", "createdAt", "basedOnRevision"]) {
+            if (saved[key] !== undefined) d[key] = saved[key];
+          }
+        if (saved?.revisionLabel && !d.revisionLabel)
+          d.revisionLabel = saved.revisionLabel;
+      }
     const removed = this.db
       .prepare("SELECT * FROM deleted_recordings WHERE workspace_id=?")
       .all(workspaceId);
@@ -309,6 +369,34 @@ class Storage {
     }
     const pending = await this.cleanupDeletedFiles();
     return { projects: this.loadWorkspace(workspaceId), cleanupPending: pending > 0 };
+  }
+  deleteDocument(workspaceId, projectId, guideId) {
+    contracts.deleteRecording.parse({ workspaceId, projectId, guideId });
+    const projects = this.loadWorkspace(workspaceId) ?? [];
+    const project = projects.find((p) => p.id === projectId);
+    const guide = project?.documents.find((d) => d.id === guideId);
+    if (!guide) throw new Error("Document not found");
+    if (!guide.sessionId || guide.id === guide.sessionId)
+      throw new Error("Use Delete recording to remove an original recording.");
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      // A null session tombstone removes only this revision, including stale saves.
+      this.db
+        .prepare("INSERT OR IGNORE INTO deleted_recordings VALUES(?,?,?,?)")
+        .run(workspaceId, projectId, guideId, null);
+      this.db
+        .prepare(
+          "DELETE FROM ai_drafts WHERE workspace_id=? AND project_id=? AND guide_id=?",
+        )
+        .run(workspaceId, projectId, guideId);
+      project.documents = project.documents.filter((d) => d.id !== guideId);
+      this.writeWorkspace(projects, workspaceId);
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
+    return { projects: this.loadWorkspace(workspaceId) };
   }
   async deleteRecording(workspaceId, projectId, guideId) {
     contracts.deleteRecording.parse({ workspaceId, projectId, guideId });

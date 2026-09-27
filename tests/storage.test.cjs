@@ -24,7 +24,7 @@ function fixture(t) {
 }
 test("SQLite schema is versioned, workspace validation rejects malformed data", (t) => {
   const s = fixture(t);
-  assert.equal(s.db.prepare("PRAGMA user_version").get().user_version, 3);
+  assert.equal(s.db.prepare("PRAGMA user_version").get().user_version, 4);
   assert.throws(() => s.saveWorkspace([{ id: "../escape" }]));
   assert.throws(() => workspace.parse([project, project]));
   assert.equal(s.loadWorkspace()[0].name, "Project");

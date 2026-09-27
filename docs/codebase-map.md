@@ -60,3 +60,14 @@ TypeScript types do not validate an IPC message at runtime. Never expose arbitra
 | Native clicks, display selection, actual screenshots and recording deletion        | [recording-smoke.mjs](../scripts/recording-smoke.mjs)         |
 
 Use [development workflow](development.md) for commands and test isolation. `dist/` is generated output; edit `src/` and rebuild. `prototype-original.html` preserves the initial visual prototype and is not the desktop implementation.
+
+## AI documentation
+
+- [Provider connections](../src/components/ai-provider-settings.tsx) manages keys and connection tests; [workspace AI defaults](../src/components/ai-workspace-settings.tsx) selects provider/model.
+- [Generation dialog](../src/components/ai-generate-dialog.tsx) handles capture review, upload disclosure, cancellation and saved draft review.
+- [AI service](../electron/ai/service.cjs) owns encrypted credentials, source validation, bounded image preparation, cancellation and draft persistence.
+- [Provider adapters](../electron/ai/providers.cjs) map a common input to OpenAI Responses or Anthropic Messages, sanitize errors and validate output evidence IDs. Endpoints are fixed; tools are not enabled.
+- [AI contracts](../electron/ai/contracts.cjs) defines IPC validation, output bounds and a shared JSON Schema.
+- [AI unit tests](../tests/ai.test.cjs) and [AI desktop smoke](../scripts/ai-smoke.mjs) use fake credentials and mocked network transport.
+
+See [AI integration](ai.md) before changing upload scope, credentials, provider protocols or draft retention.

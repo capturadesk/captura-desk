@@ -1,3 +1,4 @@
+import { AIWorkspaceSettings } from "@/components/ai-workspace-settings";
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -67,7 +68,17 @@ export function WorkspaceSettings({
         if (!open && !busy) onClose();
       }}
     >
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent
+        className="max-h-[90vh] overflow-y-auto sm:max-w-[480px]"
+        onEscapeKeyDown={(event) => {
+          // Let the model picker consume Escape before dismissing its parent dialog.
+          if (
+            event.target instanceof Element &&
+            event.target.closest("[data-model-picker]")
+          )
+            event.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>
             {confirm ? "Delete workspace?" : "Workspace settings"}
@@ -120,6 +131,7 @@ export function WorkspaceSettings({
                 </Button>
               </div>
             </form>
+            <AIWorkspaceSettings workspaceId={workspace.id} disabled={busy || disabled} />
             <div className="mt-3 space-y-3 border-t pt-5">
               <h3 className="text-sm font-medium">Delete workspace</h3>
               <p className="text-xs leading-5 text-neutral-500">

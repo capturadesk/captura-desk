@@ -18,3 +18,4 @@ jobs:
       - run: npm run build
       - run: npx install-electron --no
       - run: node scripts/smoke.mjs
+      - run: node scripts/ai-smoke.mjs
