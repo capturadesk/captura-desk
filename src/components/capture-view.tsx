@@ -4,13 +4,7 @@ import { ScreenshotZoom } from "./screenshot-zoom";
 import { SampleScreen } from "./sample-screen";
 import { errorMessage, type CaptureImage } from "@/lib/desktop";
 import { sampleSteps, type Step } from "@/lib/workspace";
-export function CaptureView({
-  step,
-  compact = false,
-}: {
-  step: Step;
-  compact?: boolean;
-}) {
+function SingleCaptureView({ step, compact = false }: { step: Step; compact?: boolean }) {
   const [frame, setFrame] = useState<"before" | "after">("before");
   const [image, setImage] = useState<CaptureImage | null>(null);
   const loadedFrame = useRef("");
@@ -135,6 +129,42 @@ export function CaptureView({
           {image.error}
         </p>
       )}
+    </div>
+  );
+}
+
+export function CaptureView({
+  step,
+  compact = false,
+}: {
+  step: Step;
+  compact?: boolean;
+}) {
+  const [index, setIndex] = useState(0);
+  useEffect(() => setIndex(0), [step.id]);
+  const ids = step.captureIds || (step.captureId ? [step.captureId] : []);
+  const selected = compact ? 0 : Math.min(index, Math.max(0, ids.length - 1));
+  return (
+    <div>
+      {!compact && ids.length > 1 && (
+        <div className="mb-2 flex flex-wrap gap-2" aria-label="Source screenshots">
+          {ids.map((id, i) => (
+            <Button
+              key={id}
+              variant={i === selected ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setIndex(i)}
+            >
+              Source {i + 1}
+            </Button>
+          ))}
+        </div>
+      )}
+      <SingleCaptureView
+        key={ids[selected] || step.id}
+        step={{ ...step, captureId: ids[selected] }}
+        compact={compact}
+      />
     </div>
   );
 }

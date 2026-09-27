@@ -11,6 +11,7 @@ const step = z.object({
   description: z.string().max(20000),
   screen: z.string().max(500),
   captureId: uuid.optional(),
+  captureIds: z.array(uuid).min(1).max(200).optional(),
   capturedAt: z.number().optional(),
   elapsedMs: z.number().optional(),
 });
@@ -21,6 +22,7 @@ const guide = z.object({
   steps: z.array(step).max(5000),
   demo: z.boolean(),
   sessionId: uuid.optional(),
+  format: z.literal("document").optional(),
   recovered: z.boolean().optional(),
   revision: z.number().int().nonnegative().optional(),
   revisionLabel: z.string().trim().min(1).max(120).optional(),

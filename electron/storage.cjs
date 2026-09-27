@@ -308,12 +308,15 @@ class Storage {
     for (const p of projects)
       for (const d of p.documents)
         for (const s of d.steps)
-          if (s.captureId) {
+          for (const captureId of new Set([
+            ...(s.captureIds || []),
+            ...(s.captureId ? [s.captureId] : []),
+          ])) {
             const row = this.db
               .prepare(
                 "SELECT c.session_id,s.workspace_id,s.project_id FROM captures c JOIN sessions s ON s.id=c.session_id WHERE c.id=?",
               )
-              .get(s.captureId);
+              .get(captureId);
             if (
               !row ||
               row.session_id !== d.sessionId ||

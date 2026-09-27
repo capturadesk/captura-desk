@@ -4,7 +4,17 @@ Notable user-facing changes to Captura Desk are recorded here, newest first. Thi
 
 ## Unreleased
 
+### Fixed
+
+- Switching steps removes the previous description editor correctly; empty descriptions show an editing prompt.
+
 ### Added
+
+- AI generation and refinement support up to 200 sources through sequential batches and a text-only merge, with progress and cancellation.
+
+- Markdown editing for summaries and step descriptions: raw source while focused, formatted content when unfocused, and rendered AI drafts.
+
+- Prompt-shaped AI documents: summaries, reports, tables, or procedures, with multiple source screenshots per section and flexible text refinement.
 
 - Workspace backup and restore preserve recordings, original images, annotations, revisions, saved drafts, AI defaults, and revision counters without API keys. Restore validates backups and creates a separate workspace, with rollback on failure.
 

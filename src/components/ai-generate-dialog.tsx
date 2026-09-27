@@ -1,3 +1,4 @@
+import { MarkdownPreview } from "./markdown-preview";
 import { RevisionComparison } from "./revision-comparison";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -28,9 +29,19 @@ export function AIGenerateDialog({
   onApplied: (projects: Project[], guideId: string) => void;
   onClose: () => void;
 }) {
+  const evidence = [
+    ...new Set(
+      guide.steps.flatMap((s) => s.captureIds || (s.captureId ? [s.captureId] : [])),
+    ),
+  ].map((id) => ({
+    ...guide.steps.find((s) => (s.captureIds || [s.captureId]).includes(id))!,
+    id,
+    captureId: id,
+    captureIds: [id],
+  }));
   const [config, setConfig] = useState<AIDefaults | null>(null);
   const [selected, setSelected] = useState<string[]>(
-    guide.steps.flatMap((s) => (s.captureId ? [s.captureId] : [])).slice(0, 20),
+    evidence.map((s) => s.captureId).slice(0, 200),
   );
   const [drafts, setDrafts] = useState<AIDraft[]>([]);
   const [draft, setDraft] = useState<AIDraft | null>(null);
@@ -152,8 +163,8 @@ export function AIGenerateDialog({
             {draft
               ? "Check the draft against your screenshots. Saving creates a separate document and keeps the original."
               : instruction
-                ? "Send your document text, project instructions and edit request. Screenshots stay on your device. Every step is preserved; edits support 1-20 steps."
-                : "Review the captures to send. Generation uses your project instructions and the recording title and description."}
+                ? "Send your document text, project instructions and edit request. Screenshots stay on your device. Your request can reorganize sections; edits support 1-200 source sections. Longer documents use multiple requests and a final merge, which may increase cost and time."
+                : "Review the captures to send. Your project instructions determine the document structure: procedures, summaries, reports, or tables. Sections may combine several captures."}
           </DialogDescription>
         </DialogHeader>
         {draft ? (
@@ -164,9 +175,9 @@ export function AIGenerateDialog({
             </p>
             <RevisionComparison guide={guide} draft={draft} />
             <h3 className="text-lg font-medium">{draft.output.title}</h3>
-            <p className="whitespace-pre-wrap text-sm">{draft.output.description}</p>
+            <MarkdownPreview text={draft.output.description} />
             {draft.output.steps.map((step, index) => (
-              <div key={step.captureId} className="space-y-2 rounded-md border p-3">
+              <div key={index} className="space-y-2 rounded-md border p-3">
                 <h4 className="text-sm font-medium">
                   {index + 1}. {step.title}
                 </h4>
@@ -175,19 +186,19 @@ export function AIGenerateDialog({
                     Review needed: the evidence was uncertain.
                   </p>
                 )}
-                <p className="whitespace-pre-wrap text-xs leading-5">
-                  {step.description}
-                </p>
+                <MarkdownPreview text={step.description} />
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() =>
-                    setPreview(
-                      guide.steps.find((s) => s.captureId === step.captureId) || null,
-                    )
+                    setPreview({
+                      ...evidence.find((s) => s.captureId === step.captureId)!,
+                      id: `preview-${index}`,
+                      captureIds: step.captureIds || [step.captureId],
+                    })
                   }
                 >
-                  View evidence for step {index + 1}
+                  View sources for section {index + 1}
                 </Button>
               </div>
             ))}
@@ -221,11 +232,13 @@ export function AIGenerateDialog({
             ) : (
               <>
                 <p className="text-xs">
-                  Select 1-20 captures. Both available frames of each selected capture
-                  will be sent; excluded captures are not uploaded.
+                  Select 1-200 captures. Both available frames of each selected capture
+                  will be sent; excluded captures are not uploaded. Larger selections are
+                  processed in batches of up to 20, followed by a text-only merge into one
+                  draft. Multiple requests may increase cost and time.
                 </p>
                 <div className="max-h-60 space-y-2 overflow-y-auto rounded-md border p-3">
-                  {guide.steps
+                  {evidence
                     .filter((s) => s.captureId)
                     .map((step, index) => (
                       <div key={step.id} className="flex items-center gap-2">
@@ -236,7 +249,7 @@ export function AIGenerateDialog({
                             disabled={
                               busy ||
                               (!selected.includes(step.captureId!) &&
-                                selected.length >= 20)
+                                selected.length >= 200)
                             }
                             onChange={(e) => {
                               setConsent(false);
@@ -286,7 +299,7 @@ export function AIGenerateDialog({
                 !consent ||
                 !selected.length ||
                 !config?.model ||
-                (!!instruction && guide.steps.length > 20)
+                (!!instruction && guide.steps.length > 200)
               }
               onClick={generate}
             >

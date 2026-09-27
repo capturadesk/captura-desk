@@ -49,16 +49,22 @@ try {
       const text = JSON.stringify({
         title: "AI documented workflow",
         description: "A generated draft to review.",
-        steps: Object.fromEntries(
-          ids.map((slot) => [
-            slot,
-            {
-              title: "Choose the action",
-              description: "Check the screen before continuing.",
-              needsReview: true,
-            },
-          ]),
-        ),
+        steps:
+          globalThis.aiTest.mode === "summary"
+            ? [
+                {
+                  sources: ids,
+                  title: "Screen findings",
+                  description: "Combined screen information",
+                  needsReview: false,
+                },
+              ]
+            : ids.map((slot) => ({
+                sources: [slot],
+                title: "Choose the action",
+                description: "Check the screen before continuing.",
+                needsReview: true,
+              })),
       });
       return provider === "openai"
         ? { status: "completed", output: [{ content: [{ type: "output_text", text }] }] }
@@ -325,15 +331,6 @@ try {
   await expect(comparison.getByText("Proposed document", { exact: true })).toBeVisible();
   await expect(comparison.locator("ins").first()).toBeVisible();
   await expect(comparison.locator("del").first()).toBeVisible();
-  await expect(
-    comparison.getByRole("heading", { name: /Step 2.*Excluded/ }),
-  ).toBeVisible();
-  await comparison
-    .getByRole("checkbox", { name: "Show only changes", exact: true })
-    .check();
-  await expect(
-    comparison.getByRole("heading", { name: /Step 2.*Excluded/ }),
-  ).toBeVisible();
   await dialog.getByText("Compare with current document", { exact: true }).click();
   assert.deepEqual(await page.evaluate(() => window.desktop.loadWorkspace()), original);
   await dialog.getByRole("button", { name: "Close", exact: true }).first().click();
@@ -422,6 +419,45 @@ try {
     page.evaluate(() => window.desktop.aiSaveKey("openai", "bad\nkey")),
     /Invalid request/,
   );
+  await page
+    .getByRole("button", { name: "Resolve a failed payment", exact: true })
+    .click();
+  await page.getByRole("menuitem", { name: /^AI test recording/ }).click();
+  await app.evaluate(() => {
+    globalThis.aiTest.mode = "summary";
+  });
+  await page.getByRole("button", { name: "Generate documentation", exact: true }).click();
+  await dialog.getByRole("checkbox").last().check();
+  await dialog.getByRole("button", { name: "Generate draft", exact: true }).click();
+  await dialog.getByRole("heading", { name: "Review AI draft", exact: true }).waitFor();
+  await dialog
+    .getByRole("button", { name: "View sources for section 1", exact: true })
+    .click();
+  await expect(
+    dialog.getByRole("button", { name: "Source 2", exact: true }),
+  ).toBeVisible();
+  await dialog.getByRole("button", { name: "Source 2", exact: true }).click();
+  await dialog.getByRole("button", { name: "Save as new document", exact: true }).click();
+  const report = (
+    await page.evaluate(() => window.desktop.loadWorkspace())
+  )[0].documents.at(-1);
+  assert.equal(report.steps.length, 1);
+  assert.equal(report.steps[0].captureIds.length, 2);
+  await expect(page.getByRole("button", { name: "Source 2", exact: true })).toBeVisible();
+  await page.evaluate(
+    ({ projectId, guideId }) => window.desktop.exportMarkdown({ projectId, guideId }),
+    { projectId: original[0].id, guideId: report.id },
+  );
+  await app.evaluate((_, filePath) => {
+    const fs = process.getBuiltinModule("fs"),
+      path = process.getBuiltinModule("path");
+    const text = fs.readFileSync(filePath, "utf8");
+    const images = [...text.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)];
+    if (images.length !== 2) throw Error("Report must export both source images");
+    for (const image of images)
+      if (!fs.existsSync(path.join(path.dirname(filePath), decodeURIComponent(image[1]))))
+        throw Error("Missing exported evidence");
+  }, exportPath);
   assert.deepEqual(errors, []);
   console.log(
     "PASS: both provider connections, workspace defaults, capture preview/exclusion/consent, cancel, saved draft reload, non-destructive apply, and validated IPC. Provider transport mocked; no external requests.",

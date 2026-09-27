@@ -4,6 +4,7 @@ export type Step = {
   description: string;
   screen: string;
   captureId?: string;
+  captureIds?: string[];
   capturedAt?: number;
   elapsedMs?: number;
 };
@@ -14,6 +15,7 @@ export type Guide = {
   steps: Step[];
   demo: boolean;
   sessionId?: string;
+  format?: "document";
   recovered?: boolean;
   revision?: number;
   revisionLabel?: string;

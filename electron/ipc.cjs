@@ -202,14 +202,16 @@ function registerIPC({
     let text = `# ${guide.title}\n\n${guide.description}\n\n`;
     for (const [index, step] of guide.steps.entries()) {
       text += `## ${index + 1}. ${step.title}\n\n${step.description}\n\n`;
-      if (step.captureId) {
-        const row = storage.capture(step.captureId);
+      for (const [evidenceIndex, captureId] of (
+        step.captureIds || (step.captureId ? [step.captureId] : [])
+      ).entries()) {
+        const row = storage.capture(captureId);
         for (const kind of ["before", "after"])
           if (row[`${kind}_file`]) {
             const dir = path.join(path.dirname(result.filePath), assets);
             await fs.mkdir(dir, { recursive: true });
-            const name = `step-${index + 1}-${kind}.png`;
-            const edited = await storage.image(step.captureId, kind);
+            const name = `step-${index + 1}-${evidenceIndex + 1}-${kind}.png`;
+            const edited = await storage.image(captureId, kind);
             if (!edited.dataUrl) throw new Error("Screenshot unavailable");
             await fs.writeFile(
               path.join(dir, name),

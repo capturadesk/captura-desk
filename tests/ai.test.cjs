@@ -23,7 +23,7 @@ const outputFor = (captures) => ({
     needsReview: true,
   })),
 });
-async function fixture(t, providers) {
+async function fixture(t, providers, count = 2) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "capturadesk-ai-"));
   const storage = new Storage(root);
   t.after(() => {
@@ -44,7 +44,7 @@ async function fixture(t, providers) {
     { name: "Display", id: "1" },
   );
   const captures = [];
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < count; i++) {
     const id = storage.addCapture(session.id, i + 1, {
       clickedAt: Date.now(),
       button: 1,
@@ -472,7 +472,7 @@ test("text refinement preserves all steps, sends current edits, and never reads 
     throw Error("Images must not be prepared");
   };
   const draft = await f.ai.refine({ ...f.input, instruction: "Make this shorter" });
-  assert.equal(sent.mode, "refine");
+  assert.equal(sent.mode, "document-refine");
   assert.equal(sent.context.editRequest, "Make this shorter");
   assert.equal(
     sent.context.currentSteps[0].description,
@@ -655,3 +655,285 @@ test("saved screenshot edits feed AI image preparation; rendering failure blocks
     reopened.close();
   }
 });
+
+for (const provider of ["openai", "anthropic"]) {
+  test(`${provider}: prompt-shaped sections merge and reuse evidence and reject unknown sources`, async () => {
+    const ids = [randomUUID(), randomUUID()];
+    let bad = false;
+    const adapter = new Providers(async (_, options) => {
+      const body = JSON.parse(options.body);
+      assert.match(
+        body.instructions || body.system,
+        /Do not require one section per capture/,
+      );
+      const text = JSON.stringify({
+        title: "Regional findings",
+        description: "Visible dashboard facts",
+        steps: [
+          {
+            title: "Summary",
+            description: "| Region | Total |\n|---|---|\n| West | 12 |",
+            needsReview: false,
+            sources: bad ? ["capture_99"] : ["capture_1", "capture_2"],
+          },
+          {
+            title: "Exceptions",
+            description: "Some values are unreadable.",
+            needsReview: true,
+            sources: ["capture_1"],
+          },
+        ],
+      });
+      return {
+        ok: true,
+        json: async () =>
+          provider === "openai"
+            ? {
+                status: "completed",
+                output: [{ content: [{ type: "output_text", text }] }],
+              }
+            : { stop_reason: "end_turn", content: [{ type: "text", text }] },
+      };
+    });
+    const input = {
+      provider,
+      key: "fake",
+      model: "fixture",
+      mode: "document",
+      context: {
+        projectInstructions: "Summarize facts by region. Do not describe clicks.",
+      },
+      captures: ids.map((id) => ({ id, frames: [] })),
+    };
+    const result = await adapter.generate(input);
+    assert.equal(result.format, "document");
+    assert.deepEqual(result.steps[0].captureIds, ids);
+    assert.deepEqual(result.steps[1].captureIds, [ids[0]]);
+    bad = true;
+    await assert.rejects(adapter.generate(input), /invalid draft/);
+  });
+}
+test("grouped sections preserve every source across save, refinement and backup", async (t) => {
+  const { createBackup, restoreBackup } = require("../electron/backup.cjs");
+  let sent;
+  const f = await fixture(t, {
+    generate: async (input) => {
+      sent = input;
+      const ids = [...new Set(input.captures.flatMap((c) => c.captureIds || [c.id]))];
+      return {
+        format: "document",
+        title: "Report",
+        description: "Summary",
+        steps: [
+          {
+            captureId: ids[0],
+            captureIds: ids,
+            title: "Findings",
+            description: "Combined findings",
+            needsReview: false,
+          },
+          {
+            captureId: ids[0],
+            captureIds: [ids[0]],
+            title: "Details",
+            description: "Detail",
+            needsReview: false,
+          },
+        ],
+      };
+    },
+  });
+  // Use a valid PNG signature for the backup validator.
+  for (const id of f.captures)
+    await f.storage.saveFrame(id, "before", {
+      png: Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=",
+        "base64",
+      ),
+      capturedAt: Date.now(),
+      width: 1,
+      height: 1,
+    });
+  const draft = await f.ai.generate({ ...f.input, captureIds: f.captures });
+  const result = f.ai.apply({ workspaceId: "personal", draftId: draft.id });
+  const guide = result.projects[0].documents.at(-1);
+  assert.equal(new Set(guide.steps.map((s) => s.id)).size, 2);
+  assert.deepEqual(guide.steps[0].captureIds, f.captures);
+  await f.ai.refine({
+    ...f.input,
+    guideId: guide.id,
+    instruction: "Combine these findings",
+  });
+  assert.deepEqual(sent.captures[0].captureIds, f.captures);
+  assert.equal(sent.captures[0].frames.length, 0);
+  const restored = restoreBackup(f.storage, createBackup(f.storage, "personal"));
+  const copy = restored.projects[0].documents.find((d) => d.title === "Report");
+  assert.equal(copy.steps[0].captureIds.length, 2);
+  assert.notEqual(copy.steps[0].captureIds[0], f.captures[0]);
+  assert.equal(copy.steps[0].captureIds[0], copy.steps[1].captureId);
+});
+
+test("long recordings batch in order and merge once without reuploading images", async (t) => {
+  const calls = [];
+  const f = await fixture(
+    t,
+    {
+      generate: async (request) => {
+        calls.push(request);
+        const result = outputFor(request.captures);
+        if (request.mode === "document-merge")
+          result.steps.forEach((step) => (step.needsReview = false));
+        return result;
+      },
+    },
+    23,
+  );
+  const input = { ...f.input, captureIds: f.captures };
+  const draft = await f.ai.generate(input);
+  assert.deepEqual(
+    calls.map((call) => call.captures.length),
+    [20, 3, 23],
+  );
+  assert.equal(calls[2].mode, "document-merge");
+  assert.ok(calls[2].captures.every((c) => c.frames.length === 0));
+  assert.deepEqual(
+    calls.slice(0, 2).flatMap((call) => call.captures.map((c) => c.id)),
+    f.captures,
+  );
+  assert.ok(draft.output.steps.every((step) => step.needsReview));
+  assert.equal(f.ai.list(input).length, 1);
+  const applied = f.ai.apply({ workspaceId: input.workspaceId, draftId: draft.id });
+  assert.equal(
+    applied.projects[0].documents.find((d) => d.id === applied.guideId).steps.length,
+    23,
+  );
+  calls.length = 0;
+  await f.ai.refine({
+    ...input,
+    guideId: applied.guideId,
+    instruction: "Make this concise",
+  });
+  assert.deepEqual(
+    calls.map((call) => call.mode),
+    ["document-refine", "document-refine", "document-merge"],
+  );
+  assert.ok(calls.every((call) => call.captures.every((c) => !c.frames.length)));
+});
+
+for (const scenario of ["failure", "cancel", "missing references"]) {
+  test(`batch ${scenario} leaves no partial draft`, async (t) => {
+    let count = 0,
+      f;
+    f = await fixture(
+      t,
+      {
+        generate: async (request) => {
+          count++;
+          if (count === 2 && scenario === "failure") throw Error("batch failed");
+          if (count === 2 && scenario === "cancel") f.ai.cancel();
+          const result = outputFor(request.captures);
+          if (request.mode === "document-merge" && scenario === "missing references")
+            result.steps.pop();
+          return result;
+        },
+      },
+      21,
+    );
+    const input = { ...f.input, captureIds: f.captures };
+    await assert.rejects(
+      f.ai.generate(input),
+      scenario === "failure"
+        ? /batch failed/
+        : scenario === "cancel"
+          ? /canceled/
+          : /omitted source/,
+    );
+    assert.equal(f.ai.list(input).length, 0);
+    assert.equal(f.ai.busy, false);
+    assert.equal(f.storage.loadWorkspace()[0].documents.length, 1);
+  });
+}
+
+test("image byte budget splits a batch before the capture count limit", async (t) => {
+  const calls = [];
+  const f = await fixture(t, {
+    generate: async (request) => {
+      calls.push(request);
+      return outputFor(request.captures);
+    },
+  });
+  f.ai.prepareImage = () => "x".repeat(13 * 1024 * 1024);
+  await f.ai.generate({ ...f.input, captureIds: f.captures });
+  assert.deepEqual(
+    calls.map((c) => c.captures.length),
+    [1, 1, 2],
+  );
+  assert.equal(calls[2].mode, "document-merge");
+});
+
+for (const provider of ["openai", "anthropic"]) {
+  test(`${provider}: text merge maps more than twenty references without images`, async () => {
+    const ids = Array.from({ length: 23 }, () => randomUUID());
+    const adapter = new Providers(async (_url, options) => {
+      const body = JSON.parse(options.body);
+      const content =
+        provider === "openai" ? body.input[0].content : body.messages[0].content;
+      assert.ok(content.every((part) => ["text", "input_text"].includes(part.type)));
+      const text = JSON.stringify({
+        title: "Combined",
+        description: "Summary",
+        steps: [
+          {
+            title: "All sources",
+            description: "Details",
+            needsReview: false,
+            sources: ids.map((_, i) => `capture_${i + 1}`),
+          },
+        ],
+      });
+      return {
+        ok: true,
+        json: async () =>
+          provider === "openai"
+            ? {
+                status: "completed",
+                output: [{ content: [{ type: "output_text", text }] }],
+              }
+            : { stop_reason: "end_turn", content: [{ type: "text", text }] },
+      };
+    });
+    const result = await adapter.generate({
+      mode: "document-merge",
+      provider,
+      key: "fake",
+      model: "fixture",
+      context: {},
+      captures: ids.map((id) => ({ id, frames: [] })),
+    });
+    assert.deepEqual(result.steps[0].captureIds, ids);
+    assert.equal(
+      require("../electron/contracts.cjs").workspace.safeParse([
+        {
+          id: "p",
+          name: "Project",
+          description: "",
+          instructions: "",
+          documents: [
+            {
+              id: "test",
+              title: result.title,
+              description: result.description,
+              demo: false,
+              steps: result.steps.map((step) => ({
+                ...step,
+                id: randomUUID(),
+                screen: "Source",
+              })),
+            },
+          ],
+        },
+      ]).success,
+      true,
+    );
+  });
+}

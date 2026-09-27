@@ -108,16 +108,27 @@ class AIService {
     return this.generate(require("./contracts.cjs").refine.parse(input));
   }
   async generate(input) {
+    input =
+      typeof input.instruction === "string"
+        ? require("./contracts.cjs").refine.parse(input)
+        : require("./contracts.cjs").generate.parse(input);
     if (this.busy) throw new Error("An AI request is already running.");
     const { project, guide } = this.source(input);
     const key = this.key(input.provider);
     const refining = typeof input.instruction === "string";
     const captureIds = refining ? guide.steps.map((s) => s.captureId) : input.captureIds;
-    if (refining && (captureIds.length < 1 || captureIds.length > 20))
-      throw new Error("AI edits support documents with 1-20 steps.");
+    if (refining && (captureIds.length < 1 || captureIds.length > 200))
+      throw new Error("AI edits support documents with 1-200 steps.");
     const ids = new Set(captureIds);
-    const selected = guide.steps.filter((s) => ids.has(s.captureId));
-    if (ids.size !== captureIds.length || selected.length !== ids.size)
+    const evidence = [
+      ...new Set(
+        guide.steps.flatMap((s) => s.captureIds || (s.captureId ? [s.captureId] : [])),
+      ),
+    ];
+    const selected = refining
+      ? guide.steps
+      : evidence.filter((id) => ids.has(id)).map((captureId) => ({ captureId }));
+    if (!refining && (ids.size !== captureIds.length || selected.length !== ids.size))
       throw new Error("Select unique captures belonging to this recording.");
     const controller = new AbortController();
     this.job = {
@@ -125,25 +136,84 @@ class AIService {
       phase: refining ? "Preparing document text" : "Preparing selected screenshots",
     };
     try {
-      const captures = [];
-      let bytes = 0;
-      for (const step of selected) {
+      let captures = [],
+        batchSteps = [],
+        bytes = 0;
+      const parts = [];
+      const context = {
+        task: guide.title,
+        context: guide.description,
+        projectInstructions: project.instructions,
+        ...(refining ? { editRequest: input.instruction } : {}),
+      };
+      const request = async (mode, sources, extra) => {
+        controller.signal.throwIfAborted();
+        const contextWithBatch = { ...context, ...extra };
+        if (JSON.stringify(contextWithBatch).length > 2000000)
+          throw new Error(
+            "Document text is too large for one draft. Select fewer captures.",
+          );
+        const result = await this.providers.generate({
+          mode,
+          provider: input.provider,
+          model: input.model,
+          key,
+          context: contextWithBatch,
+          captures: sources,
+          signal: controller.signal,
+        });
+        controller.signal.throwIfAborted();
+        return require("./contracts.cjs").output.parse(result);
+      };
+      const currentSteps = (steps) =>
+        steps.map((step, index) => ({
+          captureSlot: `capture_${index + 1}`,
+          title: step.title,
+          description: step.description,
+          needsReview: step.needsReview || false,
+        }));
+      const flush = async () => {
+        if (!captures.length) return;
+        this.job.phase = `Generating batch ${parts.length + 1}`;
+        parts.push(
+          await request(refining ? "document-refine" : "document", captures, {
+            batch: {
+              number: parts.length + 1,
+              captures: captures.length,
+              totalSources: selected.length,
+            },
+            ...(refining ? { currentSteps: currentSteps(batchSteps) } : {}),
+          }),
+        );
+        captures = [];
+        batchSteps = [];
+        bytes = 0;
+      };
+      for (const [index, step] of selected.entries()) {
         controller.signal.throwIfAborted();
         const row = this.storage.capture(step.captureId);
         if (row.session_id !== guide.sessionId)
           throw new Error("Capture does not belong to this recording.");
         if (refining) {
-          captures.push({ id: step.captureId, frames: [] });
+          for (const id of step.captureIds || [step.captureId])
+            if (this.storage.capture(id).session_id !== guide.sessionId)
+              throw new Error("Invalid source capture.");
+          captures.push({ id: step.captureId, captureIds: step.captureIds, frames: [] });
+          batchSteps.push(step);
+          if (captures.length === 20) await flush();
           continue;
         }
         const frames = [];
+        let captureBytes = 0;
         for (const kind of ["before", "after"]) {
           const frame = await this.storage.image(step.captureId, kind);
           if (frame.dataUrl) {
             const data = this.prepareImage(frame.dataUrl);
-            bytes += data.length;
-            if (bytes > 24 * 1024 * 1024)
-              throw new Error("Selected images are too large. Select fewer captures.");
+            captureBytes += data.length;
+            if (captureBytes > 24 * 1024 * 1024)
+              throw new Error(
+                "A selected capture is too large to send. Exclude it and try again.",
+              );
             frames.push({ kind, data });
           }
         }
@@ -151,6 +221,9 @@ class AIService {
           throw new Error(
             "A selected capture has no screenshot. Exclude that step and try again.",
           );
+        if (captures.length && bytes + captureBytes > 24 * 1024 * 1024) await flush();
+        bytes += captureBytes;
+        this.job.phase = `Preparing capture ${index + 1} of ${selected.length}`;
         const metadata = JSON.parse(row.metadata);
         captures.push({
           id: step.captureId,
@@ -160,32 +233,56 @@ class AIService {
           application: metadata.application || undefined,
           frames,
         });
+        if (captures.length === 20) await flush();
       }
-      controller.signal.throwIfAborted();
-      this.job.phase = "Generating documentation";
-      const output = await this.providers.generate({
-        mode: refining ? "refine" : "generate",
-        provider: input.provider,
-        model: input.model,
-        key,
-        context: {
-          task: guide.title,
-          context: guide.description,
-          projectInstructions: project.instructions,
-          ...(refining
-            ? {
-                editRequest: input.instruction,
-                currentSteps: selected.map((step, index) => ({
-                  captureSlot: `capture_${index + 1}`,
-                  title: step.title,
-                  description: step.description,
-                })),
-              }
-            : {}),
-        },
-        captures,
-        signal: controller.signal,
-      });
+      await flush();
+      let output = parts[0];
+      if (parts.length > 1) {
+        this.job.phase = "Combining batches into one document";
+        const steps = parts.flatMap((part) => part.steps);
+        if (steps.length > 200)
+          throw new Error("Too many generated sections. Select fewer captures.");
+        output = await request(
+          "document-merge",
+          steps.map((step) => ({
+            id: step.captureId,
+            captureIds: step.captureIds,
+            frames: [],
+          })),
+          {
+            currentSteps: currentSteps(steps),
+            batchSummaries: parts.map((part) => ({
+              title: part.title,
+              description: part.description,
+            })),
+          },
+        );
+        // A synthesis must not silently lose evidence or review warnings from a batch.
+        const expected = new Set(
+          steps.flatMap((step) => step.captureIds || [step.captureId]),
+        );
+        const actual = new Set(
+          output.steps.flatMap((step) => step.captureIds || [step.captureId]),
+        );
+        if (
+          [...expected].some((id) => !actual.has(id)) ||
+          [...actual].some((id) => !expected.has(id))
+        )
+          throw new Error(
+            "The combined draft omitted source references. Nothing was applied; try again.",
+          );
+        const warnings = new Set(
+          steps
+            .filter((step) => step.needsReview)
+            .flatMap((step) => step.captureIds || [step.captureId]),
+        );
+        output.steps = output.steps.map((step) => ({
+          ...step,
+          needsReview:
+            step.needsReview ||
+            (step.captureIds || [step.captureId]).some((id) => warnings.has(id)),
+        }));
+      }
       controller.signal.throwIfAborted();
       this.source(input); // Refuse to save against removed source data.
       const id = randomUUID(),
@@ -206,7 +303,7 @@ class AIService {
             ? input.instruction.replace(/\s+/g, " ").slice(0, 120)
             : "AI draft",
         }),
-        refining ? "v1-text-refinement" : "v2-capture-slots",
+        refining ? "v3-batched-refinement" : "v4-batched-document",
       );
       return { id, provider: input.provider, model: input.model, createdAt, output };
     } catch (error) {
@@ -246,10 +343,18 @@ class AIService {
       revisionLabel: output.revisionLabel || "AI draft",
       createdAt: Date.now(),
       basedOnRevision: guide.revision ?? 0,
+      format: output.format,
       title: output.title,
       description: output.description,
       steps: output.steps.map((s) => ({
         ...guide.steps.find((step) => step.captureId === s.captureId),
+        id: randomUUID(),
+        screen:
+          guide.steps.find((step) =>
+            (step.captureIds || [step.captureId]).includes(s.captureId),
+          )?.screen || "Source screenshots",
+        captureId: s.captureId,
+        captureIds: s.captureIds,
         title: s.title,
         description: (s.needsReview ? "Review needed: " : "") + s.description,
       })),

@@ -64,6 +64,43 @@ function Field({ name, before, after }: { name: string; before: string; after: s
 }
 export function RevisionComparison({ guide, draft }: { guide: Guide; draft: AIDraft }) {
   const [onlyChanges, setOnlyChanges] = useState(false);
+  if (draft.output.format === "document")
+    return (
+      <details className="rounded-md border p-3 text-xs">
+        <summary className="cursor-pointer text-sm font-medium">
+          Compare with current document
+        </summary>
+        <section aria-label="Revision comparison" className="mt-4 space-y-4">
+          <p>
+            Sections may be combined, split or reordered. Compare the complete document
+            below; source references remain attached to each proposed section.
+          </p>
+          <div className="grid grid-cols-2 gap-3 font-medium">
+            <p>Current document</p>
+            <p>Proposed document</p>
+          </div>
+          <Field name="Document title" before={guide.title} after={draft.output.title} />
+          <Field
+            name="Summary"
+            before={guide.description}
+            after={draft.output.description}
+          />
+          <Field
+            name="Sections"
+            before={guide.steps.map((s) => s.title + "\n" + s.description).join("\n\n")}
+            after={draft.output.steps
+              .map(
+                (s) =>
+                  s.title +
+                  "\n" +
+                  (s.needsReview ? "Review needed: " : "") +
+                  s.description,
+              )
+              .join("\n\n")}
+          />
+        </section>
+      </details>
+    );
   const rows = guide.steps.map((step, index) => {
     const proposed = draft.output.steps.find((s) => s.captureId === step.captureId);
     const description = proposed

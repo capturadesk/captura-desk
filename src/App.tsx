@@ -1,3 +1,4 @@
+import { MarkdownEditor } from "@/components/markdown-editor";
 import { ManageSteps } from "@/components/manage-steps";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -896,13 +897,11 @@ export default function App() {
                                 onChange={(e) => updateGuide({ title: e.target.value })}
                                 className="doc-input -ml-1 h-auto px-1 py-1 !text-[27px] font-semibold tracking-[-.8px] shadow-none focus-visible:ring-1"
                               />
-                              <Textarea
-                                aria-label="Document description"
+                              <MarkdownEditor
+                                key={guide.id}
+                                label="Document description"
                                 value={guide.description}
-                                onChange={(e) =>
-                                  updateGuide({ description: e.target.value })
-                                }
-                                className="doc-input -ml-1 mt-2 min-h-[58px] px-1 py-1 text-xs leading-6 text-neutral-500 shadow-none focus-visible:ring-1"
+                                onChange={(description) => updateGuide({ description })}
                               />
                               <div className="mb-7 mt-4 flex gap-5 text-[10px] text-neutral-400">
                                 <span className="flex items-center gap-1.5">
@@ -950,17 +949,15 @@ export default function App() {
                                       </DropdownMenuContent>
                                     </DropdownMenu>
                                   </div>
-                                  <Textarea
-                                    aria-label="Step description"
-                                    className="doc-input mb-5 min-h-[55px] px-1 text-xs leading-6 text-neutral-500 shadow-none focus-visible:ring-1"
+                                  <MarkdownEditor
+                                    key={`description-${step.id}`}
+                                    label="Step description"
                                     value={step.description}
-                                    onChange={(e) =>
-                                      updateStep({
-                                        description: e.target.value,
-                                      })
+                                    onChange={(description) =>
+                                      updateStep({ description })
                                     }
                                   />
-                                  <CaptureView key={step.id} step={step} />
+                                  <CaptureView key={`capture-${step.id}`} step={step} />
                                   <div className="mt-3 flex justify-between text-[9px] text-neutral-400">
                                     <span>
                                       Capture {String(stepIndex + 1).padStart(2, "0")} ·{" "}
@@ -1114,7 +1111,11 @@ export default function App() {
                     </div>
                     <aside className="inspector scrollbar flex w-[278px] shrink-0 flex-col overflow-auto border-l bg-white px-5 py-5">
                       <div className="flex items-center justify-between">
-                        <h2 className="text-[11px] font-medium">Workflow steps</h2>
+                        <h2 className="text-[11px] font-medium">
+                          {guide.format === "document"
+                            ? "Document sections"
+                            : "Workflow steps"}
+                        </h2>
                         <Button
                           size="icon"
                           variant="ghost"

@@ -10,6 +10,7 @@ const model = z
 const target = z.object({ workspaceId: id, projectId: id, guideId: id });
 const output = z
   .object({
+    format: z.literal("document").optional(),
     title: z.string().min(1).max(1000),
     description: z.string().max(20000),
     steps: z
@@ -17,6 +18,7 @@ const output = z
         z
           .object({
             captureId: uuid,
+            captureIds: z.array(uuid).min(1).max(200).optional(),
             title: z.string().min(1).max(1000),
             description: z.string().max(20000),
             needsReview: z.boolean(),
@@ -24,7 +26,7 @@ const output = z
           .strict(),
       )
       .min(1)
-      .max(20),
+      .max(200),
   })
   .strict();
 // Require a named slot for every selected capture. The model generates prose,
@@ -73,12 +75,57 @@ function captureResponse(count) {
     },
   };
 }
+function documentResponse(count, maxSections = 20) {
+  if (!Number.isInteger(count) || count < 1 || count > 200)
+    throw new Error("Select 1-200 sources.");
+  const slots = Array.from({ length: count }, (_, i) => `capture_${i + 1}`);
+  const section = z
+    .object({
+      title: z.string().min(1).max(1000),
+      description: z.string().max(20000),
+      needsReview: z.boolean(),
+      sources: z.array(z.enum(slots)).min(1).max(count),
+    })
+    .strict();
+  const item = {
+    type: "object",
+    additionalProperties: false,
+    required: ["title", "description", "needsReview", "sources"],
+    properties: {
+      title: { type: "string" },
+      description: { type: "string" },
+      needsReview: { type: "boolean" },
+      sources: { type: "array", items: { type: "string", enum: slots } },
+    },
+  };
+  return {
+    slots,
+    validate: z
+      .object({
+        title: z.string().min(1).max(1000),
+        description: z.string().max(20000),
+        steps: z.array(section).min(1).max(maxSections),
+      })
+      .strict(),
+    schema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["title", "description", "steps"],
+      properties: {
+        title: { type: "string" },
+        description: { type: "string" },
+        steps: { type: "array", items: item },
+      },
+    },
+  };
+}
 module.exports = {
   provider,
   model,
   target,
   output,
   captureResponse,
+  documentResponse,
   key: z.object({
     provider,
     key: z
@@ -89,7 +136,7 @@ module.exports = {
       .regex(/^[\x21-\x7e]+$/),
   }),
   defaults: z.object({ workspaceId: id, provider, model }),
-  generate: target.extend({ captureIds: z.array(uuid).min(1).max(20), provider, model }),
+  generate: target.extend({ captureIds: z.array(uuid).min(1).max(200), provider, model }),
   refine: target.extend({
     provider,
     model,

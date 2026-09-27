@@ -169,11 +169,13 @@ function restoreBackup(storage, buffer) {
     if (guide.sessionId && sessions.get(guide.sessionId)?.project_id !== projectId)
       throw Error("Invalid document session.");
     for (const step of guide.steps)
-      if (
-        step.captureId &&
-        (!guide.sessionId || captures.get(step.captureId)?.session_id !== guide.sessionId)
-      )
-        throw Error("Invalid document capture.");
+      for (const id of new Set([
+        ...(step.captureIds || []),
+        ...(step.captureId ? [step.captureId] : []),
+      ])) {
+        if (!guide.sessionId || captures.get(id)?.session_id !== guide.sessionId)
+          throw Error("Invalid document capture.");
+      }
   }
   for (const project of data.projects)
     for (const guide of project.documents) validateGuide(guide, project.id);
@@ -203,10 +205,12 @@ function restoreBackup(storage, buffer) {
       (typeof revisionLabel !== "string" || revisionLabel.length > 120)
     )
       throw Error("Invalid revision label.");
+    const evidence = new Set(
+      source.steps.flatMap((step) => step.captureIds || [step.captureId]),
+    );
     if (
-      new Set(output.steps.map((s) => s.captureId)).size !== output.steps.length ||
-      output.steps.some(
-        (s) => !source.steps.some((step) => step.captureId === s.captureId),
+      output.steps.some((s) =>
+        [...(s.captureIds || []), s.captureId].some((id) => !evidence.has(id)),
       )
     )
       throw Error("Invalid draft captures.");
@@ -223,6 +227,7 @@ function restoreBackup(storage, buffer) {
         ...s,
         id: captureIds.get(s.id) || s.id,
         captureId: s.captureId ? captureIds.get(s.captureId) : undefined,
+        captureIds: s.captureIds?.map((id) => captureIds.get(id)),
       })),
     };
   }
@@ -303,6 +308,7 @@ function restoreBackup(storage, buffer) {
       output.steps = output.steps.map((s) => ({
         ...s,
         captureId: captureIds.get(s.captureId),
+        captureIds: s.captureIds?.map((id) => captureIds.get(id)),
       }));
       storage.db
         .prepare("INSERT INTO ai_drafts VALUES(?,?,?,?,?,?,?,?,?,?,?)")

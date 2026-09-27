@@ -32,21 +32,68 @@ try {
   await fs.mkdir("artifacts", { recursive: true });
   await page.screenshot({ path: "artifacts/desktop-editor.png" });
 
-  await page
-    .getByRole("textbox", { name: "Step description", exact: true })
-    .fill("A revised instruction that must survive a restart.");
+  const mdEditor = page.getByRole("region", {
+    name: "Step description editor",
+    exact: true,
+  });
+  const description = page.getByRole("textbox", {
+    name: "Step description",
+    exact: true,
+  });
+  const editDescription = page.getByRole("button", {
+    name: "Edit step description",
+    exact: true,
+  });
+  const markdown =
+    "## Findings\n\n**Important** and *useful*.\n\n| Region | Total |\n| --- | --- |\n| West | 12 |\n\n- [x] Reviewed\n\n<script>window.markdownExecuted = true</script>\n\n![remote](https://example.com/tracker.png)";
+  await editDescription.click();
+  await description.fill(markdown);
+  await expect(description).toBeFocused();
+  await expect(description).toHaveValue(markdown);
+  await page.getByRole("textbox", { name: "Step title", exact: true }).click();
+  await expect(description).toHaveCount(0);
+  await expect(
+    mdEditor.getByRole("heading", { name: "Findings", exact: true }),
+  ).toBeVisible();
+  await expect(mdEditor.getByRole("cell", { name: "12", exact: true })).toBeVisible();
+  await expect(mdEditor.locator("strong")).toHaveText("Important");
+  await expect(mdEditor.getByRole("checkbox")).toBeChecked();
+  await expect(mdEditor.getByRole("img")).toHaveCount(0);
+  assert.equal(await page.evaluate(() => window.markdownExecuted), undefined);
   await page.reload();
-  await page.getByRole("textbox", { name: "Step description", exact: true }).waitFor();
-  assert.equal(
-    await page
-      .getByRole("textbox", { name: "Step description", exact: true })
-      .inputValue(),
-    "A revised instruction that must survive a restart.",
-  );
+  await expect(
+    mdEditor.getByRole("heading", { name: "Findings", exact: true }),
+  ).toBeVisible();
+  // Keyboard focus enters source editing too; opening and closing preserves exact source.
+  await editDescription.focus();
+  await expect(description).toBeFocused();
+  await expect(description).toHaveValue(markdown);
+  await description.press("Tab");
+  await expect(description).toHaveCount(0);
+  const saved = await page.evaluate(() => window.desktop.loadWorkspace());
+  assert.equal(saved[0].documents[0].steps[0].description, markdown);
+  await editDescription.click();
+  await description.fill("A revised instruction that must survive a restart.");
   await page.getByRole("button", { name: "Next step", exact: true }).click();
-  assert.equal(
-    await page.getByRole("textbox", { name: "Step title", exact: true }).inputValue(),
-    "Find the failed transaction",
+  await expect(mdEditor).toHaveCount(1);
+  await expect(editDescription).toHaveText(
+    "Select the Failed tab, then open the payment you want to investigate.",
+  );
+  await editDescription.click();
+  await description.fill("");
+  await page.getByRole("textbox", { name: "Step title", exact: true }).click();
+  await expect(editDescription).toHaveText("Click to add a description...");
+  await page.getByRole("button", { name: "Next step", exact: true }).click();
+  await expect(mdEditor).toHaveCount(1);
+  await expect(editDescription).toHaveText(
+    "Review the recorded failure reason and the payment amount.",
+  );
+  await page.getByRole("button", { name: "Previous step", exact: true }).click();
+  await expect(mdEditor).toHaveCount(1);
+  await editDescription.click();
+  await expect(description).toHaveValue("");
+  await description.fill(
+    "Select the Failed tab, then open the payment you want to investigate.",
   );
   await page.getByRole("button", { name: "Step options", exact: true }).click();
   await page.getByRole("menuitem", { name: "Remove step" }).click();
@@ -210,8 +257,8 @@ try {
   await page.getByRole("textbox", { name: "Document title", exact: true }).waitFor();
   assert.equal(
     await page
-      .getByRole("textbox", { name: "Step description", exact: true })
-      .inputValue(),
+      .getByRole("button", { name: "Edit step description", exact: true })
+      .textContent(),
     "A revised instruction that must survive a restart.",
   );
   await page.getByRole("button", { name: "QA workflow", exact: true }).click();

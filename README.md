@@ -40,7 +40,7 @@ Open the workspace dropdown at the top left and choose **Workspace settings** to
 
 1. Open **AI providers** in the sidebar. Choose OpenAI or Anthropic (Claude), enter your own API key, save it, and use **Test connection**. Keys are encrypted with Electron safeStorage on this device; they are shared across workspaces and can be removed here.
 2. Open **Workspace settings**, choose the default provider, and enter a model ID. **Load models** opens a searchable, scrollable list of models returned by your account. Choose one supporting image inputs and structured output, or enter its ID directly. Use **Browse models** to reopen the list. Save AI defaults.
-3. Open a real recording and click **Generate documentation**. Preview captures, exclude sensitive ones, and confirm the provider disclosure. Select up to 20 captures per draft.
+3. Open a real recording and click **Generate documentation**. Preview captures, exclude sensitive ones, and confirm the provider disclosure. Select up to 200 captures per draft. Larger selections use batches of up to 20 captures and a final text-only merge; multiple requests may increase time and cost.
 4. Generate and review the draft. Uncertain steps are marked for review. **Save as new document** preserves the original and creates an editable document containing the selected steps. Saved drafts can be reopened from the source recording after restart.
 
 API requests go directly from the desktop main process to the selected provider. Provider API billing and retention policies apply. Image copies are resized for analysis; originals stay unchanged. No automatic provider fallback or retry is performed. Cancellation stops the local request but cannot undo data already sent or guarantee that the provider stops billing. Use **Annotate screenshot** in the enlarged viewer to redact sensitive regions before generation; review both before and after frames.
@@ -92,7 +92,7 @@ See [architecture](docs/architecture.md) and [development workflow](docs/develop
 - [AI integration](docs/ai.md): credentials, provider adapters, draft lifecycle, limits and tests.
 - [Troubleshooting](docs/troubleshooting.md): recording diagnostics and safe investigation.
 
-To ask AI to revise a document, type a request such as **Make this shorter** in the refinement box below it. Click the arrow, review what will be sent, then choose **Suggest edits**. Review the draft and **Save as new document** to preserve the original. Refinement sends text only and supports 1-20 steps.
+To ask AI to revise a document, type a request such as **Make this shorter** in the refinement box below it. Click the arrow, review what will be sent, then choose **Suggest edits**. Review the draft and **Save as new document** to preserve the original. Refinement sends text only and supports 1-200 steps.
 
 Generated documents have a **Delete document** action in the three-dot menu. It removes only that revision and keeps the original recording, shared screenshots and other revisions. On the original document, **Delete recording** removes the recording and all its derived documents.
 
@@ -117,3 +117,11 @@ While recording, choose **Capture now** on the floating toolbar or press **Ctrl+
 Open **Workspace settings > Back up workspace** to save a `.captura-backup` file. It contains projects, documents and revisions, original screenshots, annotations, saved AI drafts, model defaults, and revision counters. API keys are excluded. Backups are not encrypted and include originals beneath redactions; keep them private.
 
 Choose **Restore backup** to create and switch to a separate workspace with a unique name. Existing workspaces remain unchanged; configure provider keys separately on a new device. Restore validates the format, references, and screenshot checksums before applying data. The current format supports up to 128 MiB of screenshot files and a 256 MiB backup file. Finish recording and AI generation before either operation.
+
+## Let your prompt shape the document
+
+Project instructions now control the purpose and structure of generated documentation, without choosing a separate mode. For example: **Summarize the information visible on these screens. Group findings by region, preserve figures and units, and do not describe navigation.** AI can produce up to 200 sections from up to 200 selected captures using batching, combining screenshots or reusing them across sections. Use **View sources for section** in draft review and **Source 1 / Source 2** in the editor to inspect supporting images. Refinement requests can reorganize sections too, using document text without uploading images again. Exports include every cited screenshot. Older guides and drafts remain readable.
+
+## Markdown editing
+
+Click or tab into a document summary or step description to edit its raw Markdown. Click or tab away to see formatted headings, tables, lists, and checklists. Changes save automatically; the exact Markdown source is preserved for exports and backups. AI drafts render the same formatting. Raw HTML is ignored, remote Markdown images display as placeholders, and preview links do not navigate away from your document. Captured screenshots remain available through the source viewer.

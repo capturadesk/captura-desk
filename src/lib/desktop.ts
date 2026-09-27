@@ -17,10 +17,12 @@ export type AIDraft = AIDefaults & {
   id: string;
   createdAt: number;
   output: {
+    format?: "document";
     title: string;
     description: string;
     steps: {
       captureId: string;
+      captureIds?: string[];
       title: string;
       description: string;
       needsReview: boolean;
