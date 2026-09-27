@@ -137,3 +137,9 @@ The source artwork is `assets/icon.png`. After replacing it with a square PNG, r
 ## Windows installer
 
 Run `npm run dist:win` on Windows x64 to produce the installer and SHA-256 checksum under `release/`. Run `npm run test:packaged` to verify the packaged executable. Builds are unsigned unless signing is explicitly configured, and never publish automatically. Installation is per-user; uninstall is configured to preserve workspaces and recordings. See [Windows release process](docs/windows-release.md) for native recording tests, signing, manual updates, and clean-machine qualification.
+
+## License
+
+Captura Desk is source-available under the [Captura Desk Source-Available License](LICENSE.md), copyright 2026 Andrei Mititelu. Personal and qualifying non-commercial use is free. Version 0.2.0 includes a 90-day business evaluation; ongoing commercial use requires a separate written commercial agreement. Your documents and exports remain yours. This is not an OSI-approved open-source license. See the full license for permissions and restrictions.
+
+Future packaged builds include the license in their resources directory. This repository change does not modify an already published installer or retroactively replace previously granted terms.

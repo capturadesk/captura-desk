@@ -40,5 +40,11 @@
     "runAfterFinish": false,
     "artifactName": "CapturaDesk-Setup-${version}-${arch}.exe"
   },
-  "publish": null
+  "publish": null,
+  "extraResources": [
+    {
+      "from": "LICENSE.md",
+      "to": "LICENSE.md"
+    }
+  ]
 }
