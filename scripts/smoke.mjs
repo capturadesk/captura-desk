@@ -176,8 +176,20 @@ try {
     dialog.showSaveDialog = async () => ({ canceled: false, filePath });
   }, exportPath);
   await page.getByRole("button", { name: "Export", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Markdown with images", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Document exported" }).waitFor();
   assert.match(await fs.readFile(exportPath, "utf8"), /^# Resolve a failed payment/);
+  const htmlPath = path.join(env.CAPTURADESK_TEST_DATA, "shared.html");
+  await app.evaluate(({ dialog }, filePath) => {
+    dialog.showSaveDialog = async () => ({ canceled: false, filePath });
+  }, htmlPath);
+  await page.getByRole("button", { name: "Export", exact: true }).click();
+  await page.getByRole("menuitem", { name: "HTML - single file", exact: true }).click();
+  await expect
+    .poll(async () => fs.readFile(htmlPath, "utf8").catch(() => ""))
+    .toContain("<!doctype html>");
+  assert.match(await fs.readFile(htmlPath, "utf8"), /Resolve a failed payment/);
+
   await page.reload();
   await page.getByRole("button", { name: "QA workflow", exact: true }).click();
   await page.getByRole("heading", { name: "Your first workflow starts here" }).waitFor();

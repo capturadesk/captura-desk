@@ -26,7 +26,7 @@ The **⋯** menu on a project card or project header includes **Delete project**
 3. Click **Start recording**. Captura Desk minimizes and shows a floating recording bar.
 4. Perform the task. Clicks on the selected display are saved with screenshots. Use **Pause** before displaying anything you do not want captured.
 5. Click **Finish**. Review the captured steps and their **Before click** / **After click** screenshots, then edit the instructions. Click a screenshot to enlarge it; use **Zoom in/out**, **Actual size**, or **Fit to window**. Scroll to explore enlarged images and press **Escape** to close the viewer.
-6. **Export** writes a Markdown file and a sibling folder containing its screenshots. Share both together.
+6. Choose **Export > HTML - single file** for a document with formatted Markdown and embedded screenshots that opens offline in a browser. Share just the `.html` file. **Markdown with images** remains available and writes a Markdown file plus a screenshot folder; share both together.
 
 Recording and editing stay local. No capture runs before you start or while paused. AI generation is optional and sends only explicitly selected captures, project instructions, and the recording title/description to your chosen provider. The original sample payment guide remains clearly labeled as sample content.
 
@@ -98,6 +98,10 @@ Generated documents have a **Delete document** action in the three-dot menu. It 
 
 Revision labels are separate from document titles: **Original**, **Revision 1 - AI draft**, then **Revision 2 - Make this shorter**. Each saved revision shows its creation date and source revision. Use **the three-dot menu > Rename revision** to change the label. Numbers are scoped to the original recording and are not reused after deletion. Existing revisions receive numbers in their stored order; unknown historical dates and parent revisions remain blank. Exports use the document title.
 
+## Sharing a document
+
+HTML export uses the currently selected revision and saves any pending text edits first. Screenshots include saved highlights and redactions, with all cited sources and available before/after frames embedded. It needs no internet connection or Captura Desk installation to read. Raw HTML in descriptions is ignored and external Markdown images are placeholders. You can also print the file from a browser. Exports containing more than 128 MiB of embedded image data are rejected; use a shorter document.
+
 ## Screenshot annotations
 
 Enlarge a screenshot and choose **Annotate screenshot**. Select **Redact** or **Highlight**, then drag a rectangle. Use **Undo box** or **Clear boxes** to revise your edits, then **Save screenshot edits**. Cancel leaves saved edits unchanged. Edits apply to that frame across all revisions sharing the capture. Before and after frames are separate.
@@ -125,3 +129,7 @@ Project instructions now control the purpose and structure of generated document
 ## Markdown editing
 
 Click or tab into a document summary or step description to edit its raw Markdown. Click or tab away to see formatted headings, tables, lists, and checklists. Changes save automatically; the exact Markdown source is preserved for exports and backups. AI drafts render the same formatting. Raw HTML is ignored, remote Markdown images display as placeholders, and preview links do not navigate away from your document. Captured screenshots remain available through the source viewer.
+
+## Application icon
+
+The source artwork is `assets/icon.png`. After replacing it with a square PNG, run `npm run icon:generate` to regenerate the multi-size Windows icon at `assets/icon.ico`, then restart the app. The desktop windows use this icon; the custom title bar and browser preview use the source PNG. When Windows packaging is added, configure the executable and installer to use the same `.ico` file; the development Electron executable itself is unchanged.

@@ -10,6 +10,10 @@ Notable user-facing changes to Captura Desk are recorded here, newest first. Thi
 
 ### Added
 
+- Single-file HTML export with formatted Markdown, embedded annotated screenshots, and selected revision metadata for offline sharing.
+
+- Custom desktop window icon from PNG artwork, with a reproducible multi-size Windows icon conversion command.
+
 - AI generation and refinement support up to 200 sources through sequential batches and a text-only merge, with progress and cancellation.
 
 - Markdown editing for summaries and step descriptions: raw source while focused, formatted content when unfocused, and rendered AI drafts.

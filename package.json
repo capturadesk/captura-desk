@@ -17,7 +17,8 @@
     "format:check": "prettier --check src electron tests scripts *.json *.ts index.html README.md CHANGELOG.md docs .github",
     "check": "npm run typecheck && npm test && npm run format:check",
     "test:recording": "npm run build && node scripts/recording-smoke.mjs",
-    "test:ai": "npm run build && node scripts/ai-smoke.mjs"
+    "test:ai": "npm run build && node scripts/ai-smoke.mjs",
+    "icon:generate": "node scripts/generate-icon.cjs"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",

@@ -68,6 +68,8 @@ Existing prototype localStorage is imported only if no SQLite workspace exists. 
 
 The main process loads the saved document by ID, presents the native Save dialog, writes its Markdown, and copies referenced images into a uniquely named sibling asset folder. Share both the Markdown and its asset folder. Edits are flushed before opening export. Removed steps are excluded from exports.
 
+Single-file HTML export uses `electron/export-html.cjs` to render Markdown with React static markup and embed edited PNG data URLs. It shares `storage.image` with the viewer, so redactions are flattened. Raw HTML and remote images are excluded, and a restrictive CSP disables scripts and external resource loading. The export is written to a temporary file and renamed only after completion.
+
 ## Verification and scope
 
 - Unit tests: state transitions, ordering, pause exclusion, pending writes, queue limits, capture/disk failures, recovery, schema validation, and source/document separation.

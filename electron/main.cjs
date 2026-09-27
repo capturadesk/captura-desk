@@ -17,6 +17,7 @@ app.setPath(
 const devUrl = process.env.CAPTURADESK_DEV_URL;
 if (devUrl && devUrl !== "http://127.0.0.1:5173")
   throw new Error("Invalid development URL");
+const iconPath = path.join(__dirname, "../assets/icon.ico");
 const indexPath = path.join(__dirname, "../dist/index.html");
 let mainWindow, toolbar, recorder, storage, ai;
 let quitting = false;
@@ -87,6 +88,7 @@ if (!app.requestSingleInstanceLock()) {
         sandbox: true,
       };
       mainWindow = new BrowserWindow({
+        icon: iconPath,
         width: 1440,
         height: 960,
         minWidth: 860,
@@ -155,6 +157,7 @@ if (!app.requestSingleInstanceLock()) {
             screen.getPrimaryDisplay()
           ).workArea;
           toolbar = new BrowserWindow({
+            icon: iconPath,
             width: 680,
             height: 104,
             x: area.x + Math.round((area.width - 680) / 2),

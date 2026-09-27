@@ -135,6 +135,7 @@ export interface Desktop {
     boxes: Annotation[];
   }) => Promise<void>;
   captureImage: (id: string, frame: "before" | "after") => Promise<CaptureImage>;
+  exportHTML: (input: { projectId: string; guideId: string }) => Promise<boolean>;
   exportMarkdown: (input: { projectId: string; guideId: string }) => Promise<boolean>;
 }
 export type WorkspaceCatalog = {

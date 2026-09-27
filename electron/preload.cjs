@@ -50,5 +50,6 @@ contextBridge.exposeInMainWorld("desktop", {
     ipcRenderer.invoke("capture:annotation-read", { id, frame }),
   annotationSave: (input) => ipcRenderer.invoke("capture:annotation-save", input),
   captureImage: (id, frame) => ipcRenderer.invoke("capture:image", { id, frame }),
+  exportHTML: (input) => ipcRenderer.invoke("export-html", input),
   exportMarkdown: (input) => ipcRenderer.invoke("export-markdown", input),
 });

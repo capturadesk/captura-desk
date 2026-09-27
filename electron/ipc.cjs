@@ -184,6 +184,30 @@ function registerIPC({
     storage.saveAnnotations(data);
   });
   handle("capture:image", c.captureRequest, (data) => storage.image(data.id, data.frame));
+  handle("export-html", c.exportRequest, async ({ projectId, guideId }) => {
+    const guide = storage
+      .loadWorkspace()
+      ?.find((p) => p.id === projectId)
+      ?.documents.find((d) => d.id === guideId);
+    if (!guide) throw new Error("Document not found");
+    const title =
+      guide.title.replace(/[<>:"/\\|?*\x00-\x1f]/g, "").slice(0, 100) || "Untitled";
+    const result = await dialog.showSaveDialog(mainWindow(), {
+      title: "Export single-file HTML",
+      defaultPath: title + ".html",
+      filters: [{ name: "HTML document", extensions: ["html"] }],
+    });
+    if (result.canceled || !result.filePath) return false;
+    const html = await require("./export-html.cjs").createHTML(storage, guide);
+    const temporary = result.filePath + "." + randomUUID() + ".tmp";
+    try {
+      await fs.writeFile(temporary, html, { encoding: "utf8", flag: "wx" });
+      await fs.rename(temporary, result.filePath);
+    } finally {
+      await fs.unlink(temporary).catch(() => {});
+    }
+    return true;
+  });
   handle("export-markdown", c.exportRequest, async ({ projectId, guideId }) => {
     const guide = storage
       .loadWorkspace()

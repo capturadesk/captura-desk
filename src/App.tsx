@@ -327,13 +327,13 @@ export default function App() {
     setModal(null);
     setMessage("Project saved");
   }
-  async function exportGuide() {
+  async function exportGuide(format: "markdown" | "html" = "markdown") {
     if (!guide) return;
     try {
       if (window.desktop) {
         await flush();
         if (
-          await window.desktop.exportMarkdown({
+          await window.desktop[format === "html" ? "exportHTML" : "exportMarkdown"]({
             projectId: project.id,
             guideId: guide.id,
           })
@@ -350,8 +350,8 @@ export default function App() {
         setTimeout(() => URL.revokeObjectURL(url), 1000);
         setMessage("Document exported");
       }
-    } catch {
-      setMessage("Export failed. Please try again.");
+    } catch (error) {
+      setMessage(errorMessage(error));
     }
   }
   async function startRecording() {
@@ -472,9 +472,12 @@ export default function App() {
           </div>
         )}
         <header className="titlebar flex h-10 shrink-0 items-center gap-2 border-b bg-[#fafafa] px-4 pr-40 text-[11px] text-neutral-500">
-          <span className="flex size-4 items-center justify-center rounded bg-neutral-800 text-white">
-            <MousePointer2 size={10} />
-          </span>
+          <img
+            src={new URL("../assets/icon.png", import.meta.url).href}
+            alt=""
+            className="size-5 shrink-0 object-contain"
+            draggable={false}
+          />
           <span className="font-medium text-neutral-700">Captura Desk</span>
           <span className="mx-auto text-[10px]">
             {showProjects ? "Your workspace" : project.name}
@@ -610,15 +613,29 @@ export default function App() {
                 </Button>
               )}
               {guide && view === "editor" && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 gap-2 text-[11px] shadow-none"
-                  onClick={exportGuide}
-                >
-                  <ArrowDownToLine className="size-3.5" />
-                  Export
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 gap-2 text-[11px] shadow-none"
+                    >
+                      <ArrowDownToLine className="size-3.5" />
+                      Export
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      disabled={!window.desktop}
+                      onSelect={() => void exportGuide("html")}
+                    >
+                      HTML - single file
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => void exportGuide("markdown")}>
+                      Markdown with images
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
             </div>
             {showProjects ? (

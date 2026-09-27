@@ -1,4 +1,5 @@
-﻿import { _electron as electron, expect } from "@playwright/test";
+import fs from "node:fs/promises";
+import { _electron as electron, expect } from "@playwright/test";
 import assert from "node:assert/strict";
 import path from "node:path";
 const env = {
@@ -242,6 +243,40 @@ try {
     )
       throw Error("Redaction was not flattened");
   }, rendered.dataUrl);
+  const htmlPath = path.join(env.CAPTURADESK_TEST_DATA, "redacted-export.html");
+  await app.evaluate(({ dialog }, filePath) => {
+    dialog.showSaveDialog = async () => ({ canceled: false, filePath });
+  }, htmlPath);
+  await page.evaluate(
+    ({ projectId, guideId }) => window.desktop.exportHTML({ projectId, guideId }),
+    {
+      projectId: original[0].id,
+      guideId: original[0].documents.find((d) => d.title === "AI test recording").id,
+    },
+  );
+  const sharedHTML = await fs.readFile(htmlPath, "utf8");
+  assert.ok(
+    sharedHTML.includes(rendered.dataUrl),
+    "HTML embeds the same flattened redaction as the viewer",
+  );
+  const offline = await app.evaluate(async ({ BrowserWindow }, filePath) => {
+    const preview = new BrowserWindow({
+      show: false,
+      webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
+    });
+    try {
+      await preview.loadFile(filePath);
+      return await preview.webContents.executeJavaScript(
+        `({images:[...document.images].map(image=>({loaded:image.complete&&image.naturalWidth>0,embedded:image.src.startsWith("data:image/png;base64,")})),scripts:document.scripts.length,title:document.title})`,
+      );
+    } finally {
+      preview.destroy();
+    }
+  }, htmlPath);
+  assert.ok(offline.images.length > 0);
+  assert.ok(offline.images.every((image) => image.loaded && image.embedded));
+  assert.equal(offline.scripts, 0);
+  assert.equal(offline.title, "AI test recording");
   const exportPath = path.join(env.CAPTURADESK_TEST_DATA, "redacted-export.md");
   await app.evaluate(({ dialog }, filePath) => {
     dialog.showSaveDialog = async () => ({ canceled: false, filePath });

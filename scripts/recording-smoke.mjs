@@ -300,6 +300,7 @@ try {
     dialog.showSaveDialog = async () => ({ canceled: false, filePath });
   }, output);
   await page.getByRole("button", { name: "Export", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Markdown with images", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Document exported" }).waitFor();
   const exported = await fs.readFile(output, "utf8");
   assert.match(exported, /!\[Before click\]/);
