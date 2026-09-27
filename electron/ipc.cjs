@@ -13,9 +13,12 @@ function registerIPC({
   mainWindow,
   indicators,
 }) {
+  let transferring = false;
   const handle = (channel, schema, fn, toolbar = false) =>
     ipcMain.handle(channel, async (event, payload) => {
       trusted(event, toolbar);
+      if (transferring && !["recording:state", "ai:state"].includes(channel))
+        throw new Error("Wait for the workspace backup or restore to finish.");
       const parsed = schema
         ? schema.safeParse(payload)
         : { success: true, data: payload };
@@ -37,6 +40,52 @@ function registerIPC({
         "Finish the current recording before changing workspaces or deleting a project.",
       );
   };
+  handle("workspace:backup", c.id, async (workspaceId) => {
+    requireIdle();
+    transferring = true;
+    let temporary;
+    try {
+      const result = await dialog.showSaveDialog(mainWindow(), {
+        title: "Back up workspace",
+        defaultPath: "workspace.captura-backup",
+        filters: [{ name: "Captura Desk backup", extensions: ["captura-backup"] }],
+      });
+      if (result.canceled || !result.filePath) return false;
+      const data = require("./backup.cjs").createBackup(storage, workspaceId);
+      temporary = result.filePath + "." + randomUUID() + ".tmp";
+      const file = await fs.open(temporary, "wx");
+      try {
+        await file.writeFile(data);
+        await file.sync();
+      } finally {
+        await file.close();
+      }
+      await fs.rename(temporary, result.filePath);
+      temporary = null;
+      return true;
+    } finally {
+      if (temporary) await fs.unlink(temporary).catch(() => {});
+      transferring = false;
+    }
+  });
+  handle("workspace:restore", null, async () => {
+    requireIdle();
+    transferring = true;
+    try {
+      const result = await dialog.showOpenDialog(mainWindow(), {
+        title: "Restore workspace",
+        properties: ["openFile"],
+        filters: [{ name: "Captura Desk backup", extensions: ["captura-backup"] }],
+      });
+      if (result.canceled || !result.filePaths[0]) return null;
+      const backup = require("./backup.cjs");
+      if ((await fs.stat(result.filePaths[0])).size > backup.LIMIT)
+        throw new Error("Backup exceeds the 256 MiB limit.");
+      return backup.restoreBackup(storage, await fs.readFile(result.filePaths[0]));
+    } finally {
+      transferring = false;
+    }
+  });
   handle("ai:connections", null, () => ai.connections());
   handle("ai:key", a.key, ({ provider, key }) => {
     requireIdle();

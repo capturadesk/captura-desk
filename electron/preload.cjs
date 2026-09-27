@@ -18,6 +18,8 @@ contextBridge.exposeInMainWorld("desktop", {
   aiApply: (input) => ipcRenderer.invoke("ai:apply", input),
   aiState: () => ipcRenderer.invoke("ai:state"),
   aiCancel: () => ipcRenderer.invoke("ai:cancel"),
+  backupWorkspace: (id) => ipcRenderer.invoke("workspace:backup", id),
+  restoreWorkspace: () => ipcRenderer.invoke("workspace:restore"),
   loadWorkspace: () => ipcRenderer.invoke("workspace:load"),
   initializeWorkspace: (projects) => ipcRenderer.invoke("workspace:initialize", projects),
   saveWorkspace: (workspaceId, projects) =>

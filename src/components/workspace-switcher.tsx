@@ -27,6 +27,8 @@ export function WorkspaceSwitcher({
   onCreate,
   onRename,
   onDelete,
+  onBackup,
+  onRestore,
 }: {
   workspaces: { id: string; name: string }[];
   activeId: string;
@@ -35,6 +37,8 @@ export function WorkspaceSwitcher({
   onCreate: (name: string) => Promise<void>;
   onRename: (id: string, name: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onBackup: () => Promise<boolean>;
+  onRestore: () => Promise<boolean>;
 }) {
   const [open, setOpen] = useState(false);
   const [settings, setSettings] = useState(false);
@@ -122,6 +126,8 @@ export function WorkspaceSwitcher({
           disabled={disabled}
           onClose={() => setSettings(false)}
           onRename={onRename}
+          onBackup={onBackup}
+          onRestore={onRestore}
           onDelete={onDelete}
         />
       )}

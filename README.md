@@ -111,3 +111,9 @@ Use **Manage steps** beside the workflow list to reorder with drag handles or Mo
 New recordings identify the application under each click, producing step titles such as **Click on Google Chrome**. The capture label also retains the display name. Known applications receive friendly names; others use the executable basename. If Windows cannot identify the process, the display name is used. Window titles, browser tab titles, and executable paths are not stored. Older recordings and manually edited titles remain unchanged.
 
 While recording, choose **Capture now** on the floating toolbar or press **Ctrl+Shift+S** to capture the selected display without a mouse click. Manual steps contain one screenshot and no click marker. The shortcut is registered only while recording; if another app owns it, use the toolbar button. Pause disables manual capture too.
+
+## Workspace backup and restore
+
+Open **Workspace settings > Back up workspace** to save a `.captura-backup` file. It contains projects, documents and revisions, original screenshots, annotations, saved AI drafts, model defaults, and revision counters. API keys are excluded. Backups are not encrypted and include originals beneath redactions; keep them private.
+
+Choose **Restore backup** to create and switch to a separate workspace with a unique name. Existing workspaces remain unchanged; configure provider keys separately on a new device. Restore validates the format, references, and screenshot checksums before applying data. The current format supports up to 128 MiB of screenshot files and a 256 MiB backup file. Finish recording and AI generation before either operation.

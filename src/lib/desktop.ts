@@ -84,6 +84,8 @@ export interface Desktop {
   aiState: () => Promise<{ busy: boolean; phase: string }>;
   aiCancel: () => Promise<void>;
   platform: string;
+  backupWorkspace: (id: string) => Promise<boolean>;
+  restoreWorkspace: () => Promise<WorkspaceSelection | null>;
   loadWorkspace: () => Promise<Project[] | null>;
   initializeWorkspace: (projects: Project[]) => Promise<Project[]>;
   saveWorkspace: (workspaceId: string, projects: Project[]) => Promise<boolean>;

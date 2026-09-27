@@ -77,6 +77,8 @@ export default function App() {
     workspaceId,
     workspaces,
     busy: workspaceBusy,
+    backupWorkspace,
+    restoreWorkspace,
     switchWorkspace,
     createWorkspace,
     renameWorkspace,
@@ -483,6 +485,15 @@ export default function App() {
               workspaces={workspaces}
               activeId={workspaceId}
               disabled={recording || workspaceBusy}
+              onBackup={backupWorkspace}
+              onRestore={async () => {
+                const restored = await restoreWorkspace();
+                if (restored) {
+                  resetNavigation();
+                  setMessage("Backup restored into a separate workspace.");
+                }
+                return restored;
+              }}
               onSelect={selectWorkspace}
               onCreate={addWorkspace}
               onRename={renameWorkspace}

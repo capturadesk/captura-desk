@@ -6,6 +6,8 @@ Notable user-facing changes to Captura Desk are recorded here, newest first. Thi
 
 ### Added
 
+- Workspace backup and restore preserve recordings, original images, annotations, revisions, saved drafts, AI defaults, and revision counters without API keys. Restore validates backups and creates a separate workspace, with rollback on failure.
+
 - Manual screenshots from the recording toolbar or Ctrl+Shift+S, saved as steps without artificial click markers.
 
 - Application names in newly recorded step titles and AI capture context, with display-name fallback when detection is unavailable.

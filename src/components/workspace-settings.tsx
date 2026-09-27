@@ -20,6 +20,8 @@ export function WorkspaceSettings({
   onClose,
   onRename,
   onDelete,
+  onBackup,
+  onRestore,
 }: {
   workspace: { id: string; name: string };
   canDelete: boolean;
@@ -27,11 +29,31 @@ export function WorkspaceSettings({
   onClose: () => void;
   onRename: (id: string, name: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onBackup: () => Promise<boolean>;
+  onRestore: () => Promise<boolean>;
 }) {
   const [name, setName] = useState(workspace.name);
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [transferMessage, setTransferMessage] = useState("");
+  async function transfer(restore: boolean) {
+    if (busy || disabled) return;
+    setBusy(true);
+    setError("");
+    setTransferMessage("");
+    try {
+      const done = await (restore ? onRestore() : onBackup());
+      if (done) {
+        if (restore) onClose();
+        else setTransferMessage("Workspace backup saved.");
+      }
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
   const [saved, setSaved] = useState(false);
   async function save() {
     if (busy || disabled) return;
@@ -131,6 +153,43 @@ export function WorkspaceSettings({
                 </Button>
               </div>
             </form>
+            {window.desktop && (
+              <section className="space-y-3 border-t pt-4">
+                <h3 className="text-sm font-medium">Backup and restore</h3>
+                <p className="text-xs leading-5 text-neutral-500">
+                  Back up this workspace, including original screenshots beneath
+                  redactions, annotations, revisions, saved AI drafts, and model defaults.
+                  API keys are excluded. The backup is not encrypted. Up to 128 MiB of
+                  screenshots per backup.
+                </p>
+                <p className="text-xs text-neutral-500">
+                  Restore creates a separate workspace and keeps your existing data.
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={busy || disabled}
+                    onClick={() => void transfer(false)}
+                  >
+                    Back up workspace
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={busy || disabled}
+                    onClick={() => void transfer(true)}
+                  >
+                    Restore backup
+                  </Button>
+                </div>
+                {transferMessage && (
+                  <p role="status" className="text-xs">
+                    {transferMessage}
+                  </p>
+                )}
+              </section>
+            )}
             <AIWorkspaceSettings workspaceId={workspace.id} disabled={busy || disabled} />
             <div className="mt-3 space-y-3 border-t pt-5">
               <h3 className="text-sm font-medium">Delete workspace</h3>

@@ -126,6 +126,23 @@ export function useWorkspace() {
       setBusy(false);
     }
   }
+  async function backupWorkspace() {
+    let saved = false;
+    await mutate(async () => {
+      saved = await window.desktop!.backupWorkspace(current.current.catalog.activeId);
+      return current.current;
+    });
+    return saved;
+  }
+  async function restoreWorkspace() {
+    let restored = false;
+    await mutate(async () => {
+      const result = await window.desktop!.restoreWorkspace();
+      restored = !!result;
+      return result || current.current;
+    });
+    return restored;
+  }
   async function switchWorkspace(id: string) {
     return mutate(async () => {
       if (window.desktop) return window.desktop.selectWorkspace(id);
@@ -269,6 +286,8 @@ export function useWorkspace() {
     error,
     flush,
     busy,
+    backupWorkspace,
+    restoreWorkspace,
     switchWorkspace,
     createWorkspace,
     renameWorkspace,

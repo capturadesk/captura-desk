@@ -215,6 +215,39 @@ try {
     "A revised instruction that must survive a restart.",
   );
   await page.getByRole("button", { name: "QA workflow", exact: true }).click();
+  const backupPath = path.join(env.CAPTURADESK_TEST_DATA, "workspace.captura-backup");
+  await app.evaluate(({ dialog }, filePath) => {
+    dialog.showSaveDialog = async () => ({ canceled: false, filePath });
+    dialog.showOpenDialog = async () => ({ canceled: true, filePaths: [] });
+  }, backupPath);
+  const beforeBackup = await page.evaluate(() => window.desktop.loadWorkspace());
+  await page.getByRole("button", { name: "Switch workspace", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Workspace settings", exact: true }).click();
+  await page.getByRole("button", { name: "Back up workspace", exact: true }).click();
+  await expect(page.getByText("Workspace backup saved.", { exact: true })).toBeVisible();
+  assert.equal(
+    JSON.parse(await fs.readFile(backupPath, "utf8")).format,
+    "captura-desk-workspace",
+  );
+  await page.getByRole("button", { name: "Restore backup", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Workspace settings", exact: true }),
+  ).toBeVisible();
+  await app.evaluate(({ dialog }, filePath) => {
+    dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [filePath] });
+  }, backupPath);
+  await page.getByRole("button", { name: "Restore backup", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Switch workspace", exact: true }),
+  ).toContainText("Personal workspace (restored)");
+  assert.deepEqual(
+    await page.evaluate(() => window.desktop.loadWorkspace()),
+    beforeBackup,
+  );
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Switch workspace", exact: true }),
+  ).toContainText("Personal workspace (restored)");
   assert.deepEqual(errors, []);
   console.log(
     "PASS: Electron isolation, persistence, editing, undo, export, Captura Desk branding, workspace creation/isolation/rename/deletion/cancel/reload, last workspace protection, project deletion/cancel, and empty states.",
